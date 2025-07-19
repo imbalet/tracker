@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.models import UserOrm
@@ -22,6 +23,15 @@ class UserService:
     async def get(self, user_id: UUID) -> UserResponse | None:
         async with self.session_factory() as session:
             result = await session.get(UserOrm, user_id)
+            if result is None:
+                return None
+            return UserResponse.model_validate(result, from_attributes=True)
+
+    async def get_by_chat_id(self, chat_id: str) -> UserResponse | None:
+        async with self.session_factory() as session:
+            stmt = select(UserOrm).filter_by(chat_id=chat_id)
+            res = await session.execute(stmt)
+            result = res.scalar()
             if result is None:
                 return None
             return UserResponse.model_validate(result, from_attributes=True)
