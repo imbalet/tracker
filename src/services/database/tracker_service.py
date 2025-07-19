@@ -1,17 +1,17 @@
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from src.exceptions import NotFoundException
+from src.models import TrackerDataOrm, TrackerOrm, TrackerStructureOrm
 from src.schemas import (
-    TrackerResponse,
-    TrackerStructureCreate,
     TrackerCreate,
     TrackerDataCreate,
     TrackerDataResponse,
+    TrackerResponse,
+    TrackerStructureCreate,
 )
-from src.models import TrackerDataOrm, TrackerOrm, TrackerStructureOrm
-from src.exceptions import NotFoundException
 
 
 class TrackerService:

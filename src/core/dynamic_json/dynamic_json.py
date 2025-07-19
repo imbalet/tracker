@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Any
 
-from pydantic import create_model, BaseModel
+from pydantic import BaseModel, create_model
 
 from .exceptions import AttributeException, DataException
 

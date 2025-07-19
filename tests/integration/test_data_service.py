@@ -1,13 +1,14 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio.session import async_sessionmaker
 
-from src.services.database import DataService, TrackerService
+from src.models import TrackerDataOrm
 from src.schemas import (
     TrackerDataCreate,
     TrackerResponse,
 )
-from src.models import TrackerDataOrm
+from src.services.database import DataService, TrackerService
 
 
 def generate_tracker_data(structure: dict, num: int):

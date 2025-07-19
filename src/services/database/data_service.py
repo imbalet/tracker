@@ -1,15 +1,11 @@
 from typing import Any, Literal
 from uuid import UUID
 
-from sqlalchemy import select, func, cast, Integer, Numeric
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+from sqlalchemy import Integer, Numeric, cast, func, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.schemas import (
-    AggregatedNumericData,
-    DataResult,
-)
 from src.models import TrackerDataOrm
-
+from src.schemas import AggregatedNumericData, DataResult
 
 AggregateType = Literal["min", "max", "avg", "sum"]
 

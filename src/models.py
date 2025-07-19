@@ -1,9 +1,9 @@
 import datetime
 from uuid import UUID, uuid4
 
+from sqlalchemy import DateTime, ForeignKey, text
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy import ForeignKey, DateTime, text
-from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):

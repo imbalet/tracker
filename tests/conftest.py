@@ -1,11 +1,15 @@
 import pytest
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from tests.config import config
 from src.models import Base
-from src.schemas import UserCreate
-from src.services.database import TrackerService, UserService, DataService
-from src.schemas import TrackerCreate, TrackerStructureCreate, TrackerDataCreate
+from src.schemas import (
+    TrackerCreate,
+    TrackerDataCreate,
+    TrackerStructureCreate,
+    UserCreate,
+)
+from src.services.database import DataService, TrackerService, UserService
+from tests.config import config
 
 
 @pytest.fixture
