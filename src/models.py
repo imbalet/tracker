@@ -39,7 +39,7 @@ class TrackerOrm(Base):
     __tablename__ = "trackers"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    name: Mapped[str]
+    name: Mapped[str] = mapped_column(unique=True)
     user_id: Mapped[UUID] = mapped_column(
         ForeignKey(UserOrm.id, ondelete="CASCADE"), index=True
     )

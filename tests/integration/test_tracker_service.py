@@ -1,4 +1,4 @@
-from src.services import TrackerService
+from src.services.database import TrackerService
 from src.schemas import (
     TrackerCreate,
     TrackerStructureCreate,

@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from tests.config import config
 from src.models import Base
 from src.schemas import UserCreate
-from src.services import TrackerService, UserService
+from src.services.database import TrackerService, UserService, DataService
 from src.schemas import TrackerCreate, TrackerStructureCreate, TrackerDataCreate
 
 
@@ -79,3 +79,8 @@ def tracker_service(async_session_factory):
 @pytest.fixture
 def user_service(async_session_factory):
     return UserService(async_session_factory)
+
+
+@pytest.fixture
+def data_service(async_session_factory):
+    return DataService(async_session_factory)

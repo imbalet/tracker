@@ -1,4 +1,4 @@
-from src.services import UserService
+from src.services.database import UserService
 from src.schemas import UserCreate, UserResponse
 
 

@@ -1,8 +1,8 @@
-"""init
+"""initial
 
-Revision ID: 0fda0a3be5a5
+Revision ID: 5717af30abf6
 Revises:
-Create Date: 2025-07-13 18:44:53.958982
+Create Date: 2025-07-19 16:24:10.726189
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "0fda0a3be5a5"
+revision: str = "5717af30abf6"
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -54,6 +54,7 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("name"),
     )
     op.create_index(
         op.f("ix_trackers_user_id"), "trackers", ["user_id"], unique=False

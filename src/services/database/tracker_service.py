@@ -1,3 +1,6 @@
+from uuid import UUID
+
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 
 from src.schemas import (
@@ -8,6 +11,7 @@ from src.schemas import (
     TrackerDataResponse,
 )
 from src.models import TrackerDataOrm, TrackerOrm, TrackerStructureOrm
+from src.exceptions import NotFoundException
 
 
 class TrackerService:
@@ -32,7 +36,23 @@ class TrackerService:
             await session.refresh(new_tracker)
             return TrackerResponse.model_validate(new_tracker, from_attributes=True)
 
-    async def add_data(self, data: TrackerDataCreate):
+    async def get_by_name(self, name: str) -> TrackerResponse:
+        async with self.session_factory() as session:
+            stmt = select(TrackerOrm).filter_by(name=name)
+            res = await session.execute(stmt)
+            result = res.scalar_one_or_none()
+            if result is None:
+                raise NotFoundException(f"Tracker with name {name} not found")
+            return TrackerResponse.model_validate(result, from_attributes=True)
+
+    async def get_by_id(self, tracker_id: UUID) -> TrackerResponse:
+        async with self.session_factory() as session:
+            res = session.get(TrackerOrm, tracker_id)
+            if res is None:
+                raise NotFoundException(f"Tracker with id {tracker_id} not found")
+            return TrackerResponse.model_validate(res, from_attributes=True)
+
+    async def add_data(self, data: TrackerDataCreate) -> TrackerDataResponse:
         async with self.session_factory() as session:
             new_data = TrackerDataOrm(tracker_id=data.tracker_id, data=data.data)
             session.add(new_data)
