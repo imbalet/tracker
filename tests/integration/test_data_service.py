@@ -1,3 +1,4 @@
+import string
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import update
@@ -16,13 +17,17 @@ def generate_tracker_data(structure: dict, num: int):
 
     for _ in range(num):
         data = {}
-        for name, type in structure.items():
-            if type == "int":
+        for name, props in structure.items():
+            if props["type"] == "int":
                 value = random.randint(-10, 10)
-            elif "/" in type:
-                value = random.choice(type.split("/"))
-            elif type == "float":
+            elif props["type"] == "enum":
+                value = random.choice(props["type"].split("/"))
+            elif props["type"] == "float":
                 value = random.uniform(-10, 10)
+            elif props["type"] == "string":
+                value = "".join(
+                    random.choices(string.ascii_letters + string.digits, k=5)
+                )
             else:
                 raise ValueError(f"Incorrect type value {type}")
             data[name] = value
@@ -43,27 +48,27 @@ async def insert_data(
 
 
 async def test_valid_get_field(
-    sample_tracker: TrackerResponse,
+    sample_tracker_created: TrackerResponse,
     tracker_service: TrackerService,
     data_service: DataService,
 ):
-    data = [i for i in generate_tracker_data(sample_tracker.structure.data, 10)]
-    await insert_data(data, tracker_service, sample_tracker)
+    data = [i for i in generate_tracker_data(sample_tracker_created.structure.data, 10)]
+    await insert_data(data, tracker_service, sample_tracker_created)
 
     res = await data_service.get_field_by_name(
-        tracker_id=sample_tracker.id, name="data1"
+        tracker_id=sample_tracker_created.id, name="data1"
     )
     assert len(res) == len(data)
 
 
 async def test_valid_get_sum_fields_days(
-    sample_tracker: TrackerResponse,
+    sample_tracker_created: TrackerResponse,
     tracker_service: TrackerService,
     data_service: DataService,
     async_session_factory: async_sessionmaker,
 ):
-    data = [i for i in generate_tracker_data(sample_tracker.structure.data, 10)]
-    inserted = await insert_data(data, tracker_service, sample_tracker)
+    data = [i for i in generate_tracker_data(sample_tracker_created.structure.data, 10)]
+    inserted = await insert_data(data, tracker_service, sample_tracker_created)
     async with async_session_factory() as session:
         for idx, el in enumerate(inserted):
             stmt = (
@@ -75,7 +80,7 @@ async def test_valid_get_sum_fields_days(
             await session.commit()
 
     res = await data_service.get_field_aggregation_days(
-        tracker_id=sample_tracker.id,
+        tracker_id=sample_tracker_created.id,
         aggregates=["sum", "avg", "max", "min"],
         field="data1",
         interval="day",
@@ -84,13 +89,13 @@ async def test_valid_get_sum_fields_days(
 
 
 async def test_valid_get_sum_fields_interval(
-    sample_tracker: TrackerResponse,
+    sample_tracker_created: TrackerResponse,
     tracker_service: TrackerService,
     data_service: DataService,
     async_session_factory: async_sessionmaker,
 ):
-    data = [i for i in generate_tracker_data(sample_tracker.structure.data, 10)]
-    inserted = await insert_data(data, tracker_service, sample_tracker)
+    data = [i for i in generate_tracker_data(sample_tracker_created.structure.data, 10)]
+    inserted = await insert_data(data, tracker_service, sample_tracker_created)
     async with async_session_factory() as session:
         for idx, el in enumerate(inserted):
             stmt = (
@@ -102,7 +107,7 @@ async def test_valid_get_sum_fields_interval(
             await session.commit()
 
     res = await data_service.get_sum_field(
-        tracker_id=sample_tracker.id,
+        tracker_id=sample_tracker_created.id,
         aggregates=["sum", "avg", "max", "min"],
         field="data1",
         interval=2,

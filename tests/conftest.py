@@ -41,23 +41,28 @@ async def async_session_factory():
         await conn.run_sync(Base.metadata.drop_all)
 
 
-@pytest.fixture
-def sample_user_data():
-    return UserCreate(chat_id="chat_id")
+# Data mocks
 
 
 @pytest.fixture
-async def sample_user(sample_user_data: UserCreate, user_service: UserService):
-    return await user_service.create(sample_user_data.chat_id)
+def sample_user_create():
+    return UserCreate(id="123")
 
 
 @pytest.fixture
-def sample_tracker_data(sample_user: UserResponse):
-    return TrackerCreate(name="name", chat_id=sample_user.chat_id)
+async def sample_user_created(
+    sample_user_create: UserCreate, user_service: UserService
+):
+    return await user_service.create(sample_user_create.id)
 
 
 @pytest.fixture
-def sample_structure() -> FieldType:
+def sample_tracker_create(sample_user_created: UserResponse):
+    return TrackerCreate(name="name", user_id=sample_user_created.id)
+
+
+@pytest.fixture
+def sample_tracker_structure() -> FieldType:
     structure: FieldType = {}
     for i in field_types_list:
         structure[f"{i}_name"] = {"type": i}
@@ -68,24 +73,54 @@ def sample_structure() -> FieldType:
 
 
 @pytest.fixture
-def sample_tracker_structure_data(sample_structure):
-    return TrackerStructureCreate(data=sample_structure)
+def sample_tracker_data(sample_tracker_structure: FieldType):
+    import random
+    import string
+
+    data = {}
+    for name, props in sample_tracker_structure.items():
+        match props["type"]:
+            case "int":
+                value = random.randint(-10, 10)
+            case "float":
+                value = random.uniform(-10, 10)
+            case "string":
+                value = "".join(
+                    random.choices(string.ascii_letters + string.digits, k=5)
+                )
+            case "enum":
+                value = random.choice(props["values"].split("/"))  # type: ignore
+            case _:
+                raise ValueError()
+
+        data[name] = value
+    return data
 
 
 @pytest.fixture
-def sample_tracker_data_data(sample_tracker):
+def sample_tracker_structure_create(sample_tracker_structure):
+    return TrackerStructureCreate(data=sample_tracker_structure)
+
+
+@pytest.fixture
+def sample_tracker_data_create(sample_tracker_created):
     return TrackerDataCreate(
-        tracker_id=sample_tracker.id, data={"data1": "1", "data2": "yes"}
+        tracker_id=sample_tracker_created.id, data={"data1": "1", "data2": "yes"}
     )
 
 
 @pytest.fixture
-async def sample_tracker(
-    sample_tracker_data, sample_tracker_structure_data, tracker_service: TrackerService
+async def sample_tracker_created(
+    sample_tracker_create,
+    sample_tracker_structure_create,
+    tracker_service: TrackerService,
 ):
     return await tracker_service.create(
-        tracker=sample_tracker_data, structure=sample_tracker_structure_data
+        tracker=sample_tracker_create, structure=sample_tracker_structure_create
     )
+
+
+# Services mocks
 
 
 @pytest.fixture
