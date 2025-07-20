@@ -10,6 +10,7 @@ from src.presentation.utils import (
     build_action_keyboard,
     build_field_type_keyboard,
     get_tracker_description,
+    get_tracker_description_from_dto,
 )
 from src.schemas import TrackerCreate, TrackerStructureCreate
 from src.services.database import TrackerService, UserService
@@ -54,7 +55,7 @@ async def process_tracker_name(message: Message, state: FSMContext):
     data = await state.get_data()
 
     res = await message.answer(
-        text=await get_tracker_description(data),
+        text=get_tracker_description(data),
         reply_markup=build_field_type_keyboard(),
     )
     await state.update_data(main_message_id=res.message_id)
@@ -125,7 +126,7 @@ async def process_field_name(message: Message, state: FSMContext):
     main_data = await state.get_data()
     await state.set_state(TrackerCreation.AWAIT_NEXT_ACTION)
 
-    text = await get_tracker_description(main_data)
+    text = get_tracker_description(main_data)
     keyboard = build_action_keyboard()
 
     await answer_message(
@@ -145,7 +146,7 @@ async def process_next_action(
         await state.set_state(TrackerCreation.AWAIT_FIELD_TYPE)
         data = await state.get_data()
         await callback.message.edit_text(  # type: ignore
-            text=await get_tracker_description(data),
+            text=get_tracker_description(data),
             reply_markup=build_field_type_keyboard(),
         )
 
@@ -163,10 +164,9 @@ async def process_next_action(
             tracker=TrackerCreate(name=data["name"], user_id=user.id),
             structure=TrackerStructureCreate(data=data.get("fields", {})),
         )
-        created = {"name": res.name, "fields": res.structure.data}
 
         await callback.message.edit_text(  # type: ignore
-            text=f"Трекер создан!\n\n{await get_tracker_description(created)}"
+            text=f"Трекер создан!\n\n{get_tracker_description_from_dto(res)}"
         )
         await state.clear()
 

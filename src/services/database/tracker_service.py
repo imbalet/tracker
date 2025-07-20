@@ -47,10 +47,21 @@ class TrackerService:
 
     async def get_by_id(self, tracker_id: UUID) -> TrackerResponse:
         async with self.session_factory() as session:
-            res = session.get(TrackerOrm, tracker_id)
+            res = await session.get(TrackerOrm, tracker_id)
             if res is None:
                 raise NotFoundException(f"Tracker with id {tracker_id} not found")
             return TrackerResponse.model_validate(res, from_attributes=True)
+
+    async def get_by_user_id(self, user_id: str) -> list[TrackerResponse]:
+        async with self.session_factory() as session:
+            stmt = select(TrackerOrm).filter_by(user_id=user_id)
+            res = await session.execute(stmt)
+            result = res.scalars().all()
+            if result is None:
+                raise NotFoundException(f"Trackers with user_id {user_id} not found")
+            return [
+                TrackerResponse.model_validate(i, from_attributes=True) for i in result
+            ]
 
     async def add_data(self, data: TrackerDataCreate) -> TrackerDataResponse:
         async with self.session_factory() as session:

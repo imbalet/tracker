@@ -7,10 +7,10 @@ from aiogram import BaseMiddleware, Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.methods.delete_webhook import DeleteWebhook
-from aiogram.types import TelegramObject
+from aiogram.types import BotCommand, TelegramObject
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from presentation.routers import create_tracker_router
+from presentation.routers import create_tracker_router, tracker_control_router
 from src.config import config
 from src.database import create_tables
 
@@ -59,9 +59,19 @@ async def main() -> None:
         token=config.BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
+
+    commands = [
+        BotCommand(command="/start", description="Запустить бота"),
+        BotCommand(command="/help", description="Помощь"),
+        BotCommand(command="/add_tracker", description="Добавить трекер"),
+        BotCommand(command="/my_trackers", description="Просмотр списка трекеров"),
+    ]  # TODO: move it
+    await bot.set_my_commands(commands)
+
     await bot(DeleteWebhook(drop_pending_updates=True))
     dp.include_router(create_tracker_router)
-    dp.callback_query.middleware(DBMiddleware(await get_sessionmaker()))
+    dp.include_router(tracker_control_router)
+    dp.update.middleware(DBMiddleware(await get_sessionmaker()))
     await dp.start_polling(bot)
 
 

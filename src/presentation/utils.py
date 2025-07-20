@@ -2,9 +2,10 @@ from aiogram import html
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.presentation.callbacks import ActionCallback, FieldTypeCallback
+from src.schemas import TrackerResponse
 
 
-async def get_tracker_description(data: dict) -> str:
+def get_tracker_description(data: dict) -> str:
     name = data.get("name", "Без названия")
     fields = data.get("fields", {})
 
@@ -22,6 +23,10 @@ async def get_tracker_description(data: dict) -> str:
             )
 
     return text
+
+
+def get_tracker_description_from_dto(data: TrackerResponse) -> str:
+    return get_tracker_description({"name": data.name, "fields": data.structure.data})
 
 
 def build_field_type_keyboard():
