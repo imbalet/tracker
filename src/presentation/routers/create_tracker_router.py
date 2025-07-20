@@ -155,7 +155,7 @@ async def process_next_action(
         uc = CreateTrackerStructureUseCase(TrackerService(sessionmaker))
 
         user_service = UserService(sessionmaker)
-        user = await user_service.get_by_chat_id(str(callback.message.chat.id))  # type: ignore
+        user = await user_service.get(str(callback.message.chat.id))  # type: ignore
         if user is None:
             user = await user_service.create(str(callback.message.chat.id))  # type: ignore
 

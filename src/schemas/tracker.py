@@ -27,7 +27,7 @@ class TrackerStructureResponse(TrackerStructureCreate):
 
 class TrackerCreate(BaseModel):
     name: str
-    user_id: UUID
+    user_id: str
 
 
 class TrackerResponse(TrackerCreate):

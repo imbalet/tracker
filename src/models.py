@@ -12,8 +12,7 @@ class Base(DeclarativeBase):
 
 class UserOrm(Base):
     __tablename__ = "users"
-    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    chat_id: Mapped[str] = mapped_column(unique=True)
+    id: Mapped[str] = mapped_column(primary_key=True)
 
     trackers: Mapped[list["TrackerOrm"]] = relationship(
         back_populates="user",
@@ -21,8 +20,8 @@ class UserOrm(Base):
         lazy="selectin",
     )
 
-    def __init__(self, chat_id: str):
-        self.chat_id = chat_id
+    def __init__(self, user_id: str):
+        self.id = user_id
 
 
 class TrackerStructureOrm(Base):
@@ -40,7 +39,7 @@ class TrackerOrm(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(unique=True)
-    user_id: Mapped[UUID] = mapped_column(
+    user_id: Mapped[str] = mapped_column(
         ForeignKey(UserOrm.id, ondelete="CASCADE"), index=True
     )
     structure_id: Mapped[UUID] = mapped_column(
@@ -57,7 +56,7 @@ class TrackerOrm(Base):
         lazy="selectin",
     )
 
-    def __init__(self, user_id: UUID, structure_id: UUID, name: str):
+    def __init__(self, user_id: str, structure_id: UUID, name: str):
         self.user_id = user_id
         self.structure_id = structure_id
         self.name = name

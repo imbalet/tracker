@@ -9,6 +9,7 @@ from src.schemas import (
     TrackerStructureCreate,
     UserCreate,
 )
+from src.schemas.user import UserResponse
 from src.services.database import DataService, TrackerService, UserService
 from tests.config import config
 
@@ -46,13 +47,13 @@ def sample_user_data():
 
 
 @pytest.fixture
-async def sample_user(sample_user_data, user_service: UserService):
+async def sample_user(sample_user_data: UserCreate, user_service: UserService):
     return await user_service.create(sample_user_data.chat_id)
 
 
 @pytest.fixture
-def sample_tracker_data(sample_user):
-    return TrackerCreate(name="name", user_id=sample_user.id)
+def sample_tracker_data(sample_user: UserResponse):
+    return TrackerCreate(name="name", chat_id=sample_user.chat_id)
 
 
 @pytest.fixture
