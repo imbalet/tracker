@@ -11,6 +11,6 @@ class CreateTrackerStructureUseCase:
         self, tracker: TrackerCreate, structure: TrackerStructureCreate
     ) -> TrackerResponse:
         self.structure = structure
-        self.dj = DynamicJson.from_fields(name=tracker.name, fields=structure.data)
+        self.dj = DynamicJson.from_fields(fields=structure.data)
         res = await self.tracker_service.create(tracker=tracker, structure=structure)
         return res

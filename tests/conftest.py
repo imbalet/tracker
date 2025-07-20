@@ -1,6 +1,7 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from src.core.dynamic_json.types import FieldType, field_types_list
 from src.models import Base
 from src.schemas import (
     TrackerCreate,
@@ -55,8 +56,19 @@ def sample_tracker_data(sample_user):
 
 
 @pytest.fixture
-def sample_tracker_structure_data():
-    return TrackerStructureCreate(data={"data1": "int", "data2": "yes/no"})
+def sample_structure() -> FieldType:
+    structure: FieldType = {}
+    for i in field_types_list:
+        structure[f"{i}_name"] = {"type": i}
+        if i == "enum":
+            structure[f"{i}_name"]["values"] = "val1/val2/val3"
+
+    return structure
+
+
+@pytest.fixture
+def sample_tracker_structure_data(sample_structure):
+    return TrackerStructureCreate(data=sample_structure)
 
 
 @pytest.fixture

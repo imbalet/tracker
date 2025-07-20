@@ -1,15 +1,18 @@
 import asyncio
+import logging
+import sys
 from typing import Any, Awaitable, Callable, Dict
 
 from aiogram import BaseMiddleware, Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.methods.delete_webhook import DeleteWebhook
 from aiogram.types import TelegramObject
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from presentation.routers import create_tracker_router
 from src.config import config
 from src.database import create_tables
-from presentation.router import router
 
 
 async def get_sessionmaker():
@@ -56,10 +59,12 @@ async def main() -> None:
         token=config.BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
-    dp.include_router(router)
+    await bot(DeleteWebhook(drop_pending_updates=True))
+    dp.include_router(create_tracker_router)
     dp.callback_query.middleware(DBMiddleware(await get_sessionmaker()))
     await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     asyncio.run(main())

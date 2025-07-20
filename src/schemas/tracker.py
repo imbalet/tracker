@@ -3,6 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from src.core.dynamic_json.types import FieldType
 from src.schemas import UserResponse
 
 
@@ -17,7 +18,7 @@ class TrackerDataResponse(TrackerDataCreate):
 
 
 class TrackerStructureCreate(BaseModel):
-    data: dict
+    data: FieldType
 
 
 class TrackerStructureResponse(TrackerStructureCreate):

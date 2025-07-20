@@ -19,6 +19,25 @@ router = Router(name=__name__)
 router.callback_query.middleware(CallbackMessageMiddleware())
 
 
+async def answer_message(
+    state: FSMContext, data: dict, message: Message, text: str, reply_markup=None
+):
+    if "main_message_id" in data:
+        if not message.bot:
+            raise ValueError()
+        await message.bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=data["main_message_id"],
+            text=text,
+            reply_markup=reply_markup,
+        )
+        await message.delete()
+    else:
+        msg = await message.answer(text=text, reply_markup=reply_markup)
+        await state.update_data(main_message_id=msg.message_id)
+        await message.delete()
+
+
 @router.message(Command("add_tracker"))
 async def start_tracker_creation(message: Message, state: FSMContext) -> None:
     await state.clear()
@@ -73,17 +92,7 @@ async def process_enum_values(message: Message, state: FSMContext):
 
     text = f"Выбраны следующие значения enum: {message.text}\nВведите название поля:"
 
-    if "main_message_id" in data:
-        if not message.bot:
-            raise ValueError()
-        await message.bot.edit_message_text(
-            chat_id=message.chat.id, message_id=data["main_message_id"], text=text
-        )
-        await message.delete()
-    else:
-        msg = await message.answer(text=text)
-        await state.update_data(main_message_id=msg.message_id)
-        await message.delete()
+    await answer_message(state=state, data=data, message=message, text=text)
 
 
 @router.message(TrackerCreation.AWAIT_FIELD_NAME)
@@ -93,13 +102,24 @@ async def process_field_name(message: Message, state: FSMContext):
     if field_type == "enum":
         new_field = {
             "type": field_type,
-            "name": message.text,
             "values": data["current_enum_values"],
         }
     else:
-        new_field = {"type": field_type, "name": message.text}
+        new_field = {"type": field_type}
 
-    updated_fields = data.get("fields", []) + [new_field]
+    updated_fields = data.get("fields", {})
+    if message.text in updated_fields:
+        await answer_message(
+            state=state,
+            data=data,
+            message=message,
+            text=(
+                f'Имя "{message.text}" уже существует,'
+                f'выберете другое имя для поля enum со знаяениями {data["current_enum_values"]}'
+            ),
+        )
+
+    updated_fields[message.text] = new_field
     await state.update_data(fields=updated_fields, current_field_type=None)
 
     main_data = await state.get_data()
@@ -107,20 +127,10 @@ async def process_field_name(message: Message, state: FSMContext):
 
     text = await get_tracker_description(main_data)
     keyboard = build_action_keyboard()
-    if "main_message_id" in data:
-        if not message.bot:
-            raise ValueError()
-        await message.bot.edit_message_text(
-            chat_id=message.chat.id,
-            message_id=data["main_message_id"],
-            text=text,
-            reply_markup=keyboard,
-        )
-        await message.delete()
-    else:
-        msg = await message.answer(text=text, reply_markup=keyboard)
-        await state.update_data(main_message_id=msg.message_id)
-        await message.delete()
+
+    await answer_message(
+        state=state, data=data, message=message, text=text, reply_markup=keyboard
+    )
 
 
 @router.callback_query(TrackerCreation.AWAIT_NEXT_ACTION, ActionCallback.filter())
@@ -144,13 +154,6 @@ async def process_next_action(
 
         uc = CreateTrackerStructureUseCase(TrackerService(sessionmaker))
 
-        fields = {
-            field["name"]: (
-                field["values"] if field["type"] == "enum" else field["type"]
-            )
-            for field in data.get("fields", [])
-        }
-
         user_service = UserService(sessionmaker)
         user = await user_service.get_by_chat_id(str(callback.message.chat.id))  # type: ignore
         if user is None:
@@ -158,11 +161,12 @@ async def process_next_action(
 
         res = await uc.execute(
             tracker=TrackerCreate(name=data["name"], user_id=user.id),
-            structure=TrackerStructureCreate(data=fields),
+            structure=TrackerStructureCreate(data=data.get("fields", {})),
         )
+        created = {"name": res.name, "fields": res.structure.data}
 
         await callback.message.edit_text(  # type: ignore
-            text=f"Трекер создан!\n\n{await get_tracker_description(data)}"
+            text=f"Трекер создан!\n\n{await get_tracker_description(created)}"
         )
         await state.clear()
 

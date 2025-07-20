@@ -6,19 +6,19 @@ from src.presentation.callbacks import ActionCallback, FieldTypeCallback
 
 async def get_tracker_description(data: dict) -> str:
     name = data.get("name", "Без названия")
-    fields = data.get("fields", [])
+    fields = data.get("fields", {})
 
     text = f"Создание трекера: {html.bold(name)}\n\n"
     text += "Поля:\n"
 
     if not fields:
-        text += "  → Пока нет полей\n"
+        text += "  -> Пока нет полей\n"
     else:
-        for i, field in enumerate(fields, 1):
+        for i, (field_name, field) in enumerate(fields.items(), 1):
             text += (
                 f"  {i}. {field['type']}"
                 f" {field['values'] if field["type"] == "enum" else ""}"
-                f" -> {html.italic(field['name'])}\n"
+                f" -> {html.italic(field_name)}\n"
             )
 
     return text
