@@ -50,12 +50,14 @@ async def start_tracker_creation(message: Message, state: FSMContext) -> None:
 
 @router.message(TrackerCreation.AWAIT_TRACKER_NAME)
 async def process_tracker_name(message: Message, state: FSMContext):
-    await state.update_data(name=message.text)
+    tracker = {"name": message.text, "fields": {}}
+    await state.update_data(tracker=tracker)
+
     await state.set_state(TrackerCreation.AWAIT_FIELD_TYPE)
     data = await state.get_data()
 
     res = await message.answer(
-        text=get_tracker_description(data, "Создание трекера"),
+        text=get_tracker_description(data["tracker"], "Создание трекера"),
         reply_markup=build_field_type_keyboard(),
     )
     await state.update_data(main_message_id=res.message_id)
@@ -98,6 +100,8 @@ async def process_enum_values(message: Message, state: FSMContext):
 
 @router.message(TrackerCreation.AWAIT_FIELD_NAME)
 async def process_field_name(message: Message, state: FSMContext):
+    await state.set_state(TrackerCreation.AWAIT_NEXT_ACTION)
+
     data = await state.get_data()
     field_type = data["current_field_type"]
     if field_type == "enum":
@@ -108,8 +112,8 @@ async def process_field_name(message: Message, state: FSMContext):
     else:
         new_field = {"type": field_type}
 
-    updated_fields = data.get("fields", {})
-    if message.text in updated_fields:
+    tracker = data["tracker"]
+    if message.text in tracker["fields"]:
         await answer_message(
             state=state,
             data=data,
@@ -120,13 +124,12 @@ async def process_field_name(message: Message, state: FSMContext):
             ),
         )
 
-    updated_fields[message.text] = new_field
-    await state.update_data(fields=updated_fields, current_field_type=None)
+    tracker["fields"][message.text] = new_field
+    await state.update_data(
+        tracker=tracker, current_field_type=None, current_enum_values=None
+    )
 
-    main_data = await state.get_data()
-    await state.set_state(TrackerCreation.AWAIT_NEXT_ACTION)
-
-    text = get_tracker_description(main_data, "Создание трекера")
+    text = get_tracker_description(tracker, "Создание трекера")
     keyboard = build_action_keyboard()
 
     await answer_message(
@@ -142,26 +145,25 @@ async def process_next_action(
     tracker_service: TrackerService,
     user_service: UserService,
 ):
+    data = await state.get_data()
+    tracker = data["tracker"]
 
     if callback_data.action == "add_field":
         await state.set_state(TrackerCreation.AWAIT_FIELD_TYPE)
-        data = await state.get_data()
         await callback.message.edit_text(  # type: ignore
-            text=get_tracker_description(data, "Создание трекера"),
+            text=get_tracker_description(tracker, "Создание трекера"),
             reply_markup=build_field_type_keyboard(),
         )
 
     elif callback_data.action == "finish":
-        data = await state.get_data()
-
         uc = CreateTrackerStructureUseCase(tracker_service)
         user = await user_service.get(str(callback.message.chat.id))  # type: ignore
         if user is None:
             user = await user_service.create(str(callback.message.chat.id))  # type: ignore
 
         res = await uc.execute(
-            tracker=TrackerCreate(name=data["name"], user_id=user.id),
-            structure=TrackerStructureCreate(data=data.get("fields", {})),
+            tracker=TrackerCreate(name=tracker["name"], user_id=user.id),
+            structure=TrackerStructureCreate(data=data["tracker"]["fields"]),
         )
 
         await callback.message.edit_text(  # type: ignore

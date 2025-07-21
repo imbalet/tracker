@@ -1,6 +1,9 @@
+from typing import TypedDict
+
 from aiogram import html
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from src.core.dynamic_json.types import FieldDefinition
 from src.presentation.callbacks import (
     ActionCallback,
     CancelCallback,
@@ -11,12 +14,22 @@ from src.presentation.callbacks import (
 from src.schemas import TrackerResponse
 
 
-def get_tracker_description(data: dict, add_string: str = "") -> str:
-    name = data.get("name", "Без названия")
-    fields = data.get("fields", {})
+class TrackerDefinition(TypedDict):
+    name: str
+    fields: dict[str, FieldDefinition]
 
-    text = (f"{add_string}\n" if add_string else "") + f"{html.bold(name)}\n\n"
-    text += "Поля:\n"
+
+def _get_tracker_text(
+    tracker: TrackerDefinition, data: dict[str, str], additional_str: str = ""
+):
+    name = tracker["name"]
+    fields = tracker["fields"]
+
+    text = (
+        f"{additional_str}\n"
+        if additional_str
+        else "" f"{html.bold(name)}\n\n" "Поля:\n"
+    )
 
     if not fields:
         text += "  -> Пока нет полей\n"
@@ -24,11 +37,21 @@ def get_tracker_description(data: dict, add_string: str = "") -> str:
         for i, (field_name, field) in enumerate(fields.items(), 1):
             text += (
                 f"  {i}. {field['type']}"
-                f" {field['values'] if field["type"] == "enum" else ""}"
-                f" -> {html.italic(field_name)}\n"
+                + f" {field['values'] if field['type'] == 'enum' else ''}"  # type: ignore
+                + f" -> {html.italic(field_name)}"
+                + (f" -> {data.get(field_name, 'Не заполнено')}\n" if data else "\n")
             )
-
     return text
+
+
+def get_tracker_description(tracker: TrackerDefinition, add_string: str = "") -> str:
+    return _get_tracker_text(tracker=tracker, data={}, additional_str=add_string)
+
+
+def get_tracker_data_description(
+    tracker: TrackerDefinition, data: dict[str, str], add_string: str = ""
+) -> str:
+    return _get_tracker_text(tracker=tracker, data=data, additional_str=add_string)
 
 
 def get_tracker_description_from_dto(
@@ -37,29 +60,6 @@ def get_tracker_description_from_dto(
     return get_tracker_description(
         {"name": data.name, "fields": data.structure.data}, add_string=add_string
     )
-
-
-def get_tracker_data_description(
-    tracker: dict, data: dict, add_string: str = ""
-) -> str:
-    name = tracker.get("name", "Без названия")
-    fields = tracker.get("fields", {})
-
-    text = (f"{add_string}\n" if add_string else "") + f"{html.bold(name)}\n\n"
-    text += "Поля:\n"
-
-    if not fields:
-        text += "  -> Пока нет полей\n"
-    else:
-        for i, (field_name, field) in enumerate(fields.items(), 1):
-            text += (
-                f"  {i}. {field['type']}"
-                f" {field['values'] if field["type"] == "enum" else ""}"
-                f": {html.italic(field_name)}"
-                f" -> {data.get(field_name, "Не заполнено")}\n"
-            )
-
-    return text
 
 
 def get_tracker_data_description_from_dto(
@@ -101,16 +101,16 @@ def build_trackers_keyboard(data: list[TrackerResponse]):
 
 
 def build_tracker_fields_keyboard(
-    tracker: TrackerResponse, exclude_fields: set | None = None
+    tracker: TrackerResponse, exclude_fields: set[str] | None = None
 ):
     builder = InlineKeyboardBuilder()
     for name, props in tracker.structure.data.items():
         if exclude_fields and name in exclude_fields:
             continue
         builder.button(
-            text=f"{name}: {props["type"] if props["type"] != "enum" else props['values']}",  # type: ignore
+            text=f"{name}: {props['type'] if props['type'] != 'enum' else props['values']}",  # type: ignore
             callback_data=FieldCallback(name=name, tracker_id=tracker.id),
         )
-    builder.button(text="Отмена", callback_data=CancelCallback(tracker_id=tracker.id))
-    builder.adjust(3, 1)
+    builder.button(text="Отменить", callback_data=CancelCallback(tracker_id=tracker.id))
+    builder.adjust(1)
     return builder.as_markup()
