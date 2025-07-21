@@ -5,11 +5,11 @@ from src.presentation.callbacks import ActionCallback, FieldTypeCallback
 from src.schemas import TrackerResponse
 
 
-def get_tracker_description(data: dict) -> str:
+def get_tracker_description(data: dict, add_string: str = "") -> str:
     name = data.get("name", "Без названия")
     fields = data.get("fields", {})
 
-    text = f"Создание трекера: {html.bold(name)}\n\n"
+    text = (f"{add_string}\n" if add_string else "") + f"{html.bold(name)}\n\n"
     text += "Поля:\n"
 
     if not fields:
@@ -25,8 +25,12 @@ def get_tracker_description(data: dict) -> str:
     return text
 
 
-def get_tracker_description_from_dto(data: TrackerResponse) -> str:
-    return get_tracker_description({"name": data.name, "fields": data.structure.data})
+def get_tracker_description_from_dto(
+    data: TrackerResponse, add_string: str = ""
+) -> str:
+    return get_tracker_description(
+        {"name": data.name, "fields": data.structure.data}, add_string=add_string
+    )
 
 
 def build_field_type_keyboard():

@@ -55,7 +55,7 @@ async def process_tracker_name(message: Message, state: FSMContext):
     data = await state.get_data()
 
     res = await message.answer(
-        text=get_tracker_description(data),
+        text=get_tracker_description(data, "Создание трекера"),
         reply_markup=build_field_type_keyboard(),
     )
     await state.update_data(main_message_id=res.message_id)
@@ -116,7 +116,7 @@ async def process_field_name(message: Message, state: FSMContext):
             message=message,
             text=(
                 f'Имя "{message.text}" уже существует,'
-                f'выберете другое имя для поля enum со знаяениями {data["current_enum_values"]}'
+                f'выберете другое имя для поля enum со значениями {data["current_enum_values"]}'
             ),
         )
 
@@ -126,7 +126,7 @@ async def process_field_name(message: Message, state: FSMContext):
     main_data = await state.get_data()
     await state.set_state(TrackerCreation.AWAIT_NEXT_ACTION)
 
-    text = get_tracker_description(main_data)
+    text = get_tracker_description(main_data, "Создание трекера")
     keyboard = build_action_keyboard()
 
     await answer_message(
@@ -146,7 +146,7 @@ async def process_next_action(
         await state.set_state(TrackerCreation.AWAIT_FIELD_TYPE)
         data = await state.get_data()
         await callback.message.edit_text(  # type: ignore
-            text=get_tracker_description(data),
+            text=get_tracker_description(data, "Создание трекера"),
             reply_markup=build_field_type_keyboard(),
         )
 
@@ -166,7 +166,7 @@ async def process_next_action(
         )
 
         await callback.message.edit_text(  # type: ignore
-            text=f"Трекер создан!\n\n{get_tracker_description_from_dto(res)}"
+            text=f"Трекер создан!\n\n{get_tracker_description_from_dto(res, "Создание трекера")}"
         )
         await state.clear()
 

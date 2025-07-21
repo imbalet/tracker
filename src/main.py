@@ -65,6 +65,7 @@ async def main() -> None:
         BotCommand(command="/help", description="Помощь"),
         BotCommand(command="/add_tracker", description="Добавить трекер"),
         BotCommand(command="/my_trackers", description="Просмотр списка трекеров"),
+        BotCommand(command="/track", description="Добавить данные в трекер"),
     ]  # TODO: move it
     await bot.set_my_commands(commands)
 
