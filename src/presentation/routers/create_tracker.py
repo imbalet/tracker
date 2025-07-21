@@ -139,7 +139,8 @@ async def process_next_action(
     callback: CallbackQuery,
     callback_data: ActionCallback,
     state: FSMContext,
-    sessionmaker,
+    tracker_service: TrackerService,
+    user_service: UserService,
 ):
 
     if callback_data.action == "add_field":
@@ -153,9 +154,7 @@ async def process_next_action(
     elif callback_data.action == "finish":
         data = await state.get_data()
 
-        uc = CreateTrackerStructureUseCase(TrackerService(sessionmaker))
-
-        user_service = UserService(sessionmaker)
+        uc = CreateTrackerStructureUseCase(tracker_service)
         user = await user_service.get(str(callback.message.chat.id))  # type: ignore
         if user is None:
             user = await user_service.create(str(callback.message.chat.id))  # type: ignore

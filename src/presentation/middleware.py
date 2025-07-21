@@ -4,7 +4,28 @@ from aiogram import BaseMiddleware, Bot
 from aiogram.types import (
     CallbackQuery,
     InaccessibleMessage,
+    TelegramObject,
 )
+
+from src.services.database import DataService, TrackerService, UserService
+
+
+class DBMiddleware(BaseMiddleware):
+    def __init__(self, sessionmaker):
+        super().__init__()
+        self.sessionmaker = sessionmaker
+
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: Dict[str, Any],
+    ) -> Any:
+        data["sessionmaker"] = self.sessionmaker
+        data["data_service"] = DataService(session_factory=self.sessionmaker)
+        data["tracker_service"] = TrackerService(session_factory=self.sessionmaker)
+        data["user_service"] = UserService(session_factory=self.sessionmaker)
+        return await handler(event, data)
 
 
 class CallbackMessageMiddleware(BaseMiddleware):
