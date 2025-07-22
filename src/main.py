@@ -11,7 +11,11 @@ from aiogram.types import BotCommand
 from src.config import config
 from src.database import get_sessionmaker
 from src.presentation.middleware import DBMiddleware
-from src.presentation.routers import create_tracker_router, tracker_control_router
+from src.presentation.routers import (
+    create_tracker_router,
+    general_router,
+    tracker_control_router,
+)
 
 dp = Dispatcher()
 
@@ -35,6 +39,8 @@ async def main() -> None:
     await bot(DeleteWebhook(drop_pending_updates=True))
     dp.include_router(create_tracker_router)
     dp.include_router(tracker_control_router)
+    dp.include_router(general_router)
+
     dp.update.middleware(DBMiddleware(await get_sessionmaker()))
     await dp.start_polling(bot)
 
