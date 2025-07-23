@@ -61,6 +61,7 @@ class DataService:
                         Integer,
                     ).label("group_id"),
                     field_value,
+                    TrackerDataOrm.created_at,
                 )
                 .filter_by(tracker_id=tracker_id)
                 .subquery()
@@ -68,23 +69,23 @@ class DataService:
 
             selections = []
             if "sum" in aggregates:
-                selections.append(func.sum(field_value).label("sum"))
+                selections.append(func.sum(subquery.c.field_value).label("sum"))
             if "avg" in aggregates:
-                selections.append(func.avg(field_value).label("avg"))
+                selections.append(func.avg(subquery.c.field_value).label("avg"))
             if "min" in aggregates:
-                selections.append(func.min(field_value).label("min"))
+                selections.append(func.min(subquery.c.field_value).label("min"))
             if "max" in aggregates:
-                selections.append(func.max(field_value).label("max"))
+                selections.append(func.max(subquery.c.field_value).label("max"))
 
             query = (
                 select(
                     subquery.c.group_id.label("id"),
-                    func.min(TrackerDataOrm.created_at).label("interval_start"),
-                    func.max(TrackerDataOrm.created_at).label("interval_end"),
-                    func.count().label("record_count"),
+                    func.min(subquery.c.created_at).label("interval_start"),
+                    func.max(subquery.c.created_at).label("interval_end"),
+                    func.count(subquery.c.group_id).label("record_count"),
                     *selections,
                 )
-                .group_by(subquery.c.group_id.cast(Integer))
+                .group_by(subquery.c.group_id)
                 .order_by(subquery.c.group_id)
             )
             res = await session.execute(query)
