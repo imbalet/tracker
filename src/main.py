@@ -5,11 +5,18 @@ import sys
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.filters.exception import ExceptionTypeFilter
 from aiogram.methods.delete_webhook import DeleteWebhook
 from aiogram.types import BotCommand
 
 from src.config import config
+from src.core.dynamic_json.exceptions import DynamicJsonException
 from src.database import get_sessionmaker
+from src.exceptions import ServiceExceptions
+from src.exceptions_handler import (
+    dynamic_json_exceptions_handler,
+    service_exceptions_handler,
+)
 from src.presentation.middleware import DBMiddleware
 from src.presentation.routers import (
     create_tracker_router,
@@ -17,11 +24,17 @@ from src.presentation.routers import (
     tracker_control_router,
 )
 
-dp = Dispatcher()
-
 
 async def main() -> None:
-    global dp
+    dp = Dispatcher()
+
+    dp.errors.register(
+        dynamic_json_exceptions_handler, ExceptionTypeFilter(DynamicJsonException)
+    )
+    dp.errors.register(
+        service_exceptions_handler, ExceptionTypeFilter(ServiceExceptions)
+    )
+
     bot = Bot(
         token=config.BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),

@@ -1,9 +1,9 @@
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, ValidationError, create_model
 
-from .exceptions import AttributeException, DataException
+from .exceptions import AttributeException, TypeException, ValidationException
 from .types import FieldType
 
 
@@ -36,19 +36,28 @@ class DynamicJson:
             elif field_props["type"] == "string":
                 field_types[field_name] = (str, ...)
             else:
-                raise DataException(f"Unsupported type: {field_props['type']}")
+                raise TypeException(f"Unsupported type: {field_props['type']}")
         structure = create_model("dynamic_model", **field_types)
         return structure
 
     def validate(self, data: dict[str, str]):
-        return self.structure.model_validate(data)
+        try:
+            return self.structure.model_validate(data)
+        except ValidationError as e:
+            raise ValidationException("Error on data validation: ", e.errors()) from e
 
     def fill_one(self, data: dict[str, str]):
-        model = self.structure.model_validate(data)
-        self.model = model
+        try:
+            model = self.structure.model_validate(data)
+            self.model = model
+        except ValidationError as e:
+            raise ValidationException("Error on data validation: ", e.errors()) from e
 
     def fill_list(self, data: list[dict[str, str]]):
-        self.data = [self.structure.model_validate(i) for i in data]
+        try:
+            self.data = [self.structure.model_validate(i) for i in data]
+        except ValidationError as e:
+            raise ValidationException("Error on data validation: ", e.errors()) from e
 
     def dump_structure(self):
         return self.raw_fields
