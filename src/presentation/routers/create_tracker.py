@@ -12,7 +12,7 @@ from src.presentation.utils import (
     get_tracker_description,
     get_tracker_description_from_dto,
 )
-from src.schemas import TrackerCreate, TrackerStructureCreate
+from src.schemas import TrackerStructureCreate
 from src.services.database import TrackerService, UserService
 from src.use_cases import CreateTrackerStructureUseCase
 
@@ -156,13 +156,11 @@ async def process_next_action(
         )
 
     elif callback_data.action == "finish":
-        uc = CreateTrackerStructureUseCase(tracker_service)
-        user = await user_service.get(str(callback.message.chat.id))  # type: ignore
-        if user is None:
-            user = await user_service.create(str(callback.message.chat.id))  # type: ignore
+        uc = CreateTrackerStructureUseCase(tracker_service, user_service)
 
         res = await uc.execute(
-            tracker=TrackerCreate(name=tracker["name"], user_id=user.id),
+            user_id=str(callback.message.chat.id),  # type: ignore
+            tracker_name=tracker["name"],
             structure=TrackerStructureCreate(data=data["tracker"]["fields"]),
         )
 
