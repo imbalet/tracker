@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -73,7 +75,7 @@ def sample_tracker_structure() -> FieldType:
 
 
 @pytest.fixture
-def sample_tracker_data(sample_tracker_structure: FieldType):
+def sample_tracker_data(sample_tracker_structure: FieldType) -> dict[str, Any]:
     import random
     import string
 

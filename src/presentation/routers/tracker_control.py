@@ -3,6 +3,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
+from src.core.dynamic_json.dynamic_json import DynamicJson
 from src.presentation.callbacks import CancelCallback, FieldCallback, TrackerCallback
 from src.presentation.middleware import CallbackMessageMiddleware
 from src.presentation.states import AddingData
@@ -109,16 +110,21 @@ async def handle_field_value(
     data = await state.get_data()
     filled_fields = set(data["filled_fields"])
 
-    filled_fields.add(data["current_field"])
+    current_field = data["current_field"]
+    filled_fields.add(current_field)
 
     field_values: dict = data.get("field_values", {})
-    field_values[data["current_field"]] = message.text  # type: ignore
+    current_field_value = message.text
+    field_values[current_field] = current_field_value  # type: ignore
 
     await state.update_data(field_values=field_values, filled_fields=filled_fields)
     await state.set_state(AddingData.AWAIT_NEXT_ACTION)
 
     tracker = TrackerResponse.model_validate_json(data["current_tracker"])
+    dj = DynamicJson.from_fields(fields=tracker.structure.data)
+    dj.validate_one_field(current_field, str(current_field_value))
     if len(filled_fields) == len(tracker.structure.data):
+        dj.validate(field_values)
         await tracker_service.add_data(
             TrackerDataCreate(tracker_id=data["current_tracker_id"], data=field_values)
         )

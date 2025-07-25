@@ -46,6 +46,24 @@ class DynamicJson:
         except ValidationError as e:
             raise ValidationException("Error on data validation: ", e.errors()) from e
 
+    def validate_one_field(self, field_name: str, field_value: str):
+        if field_name not in self.structure.model_fields:
+            raise AttributeException(
+                f"Field '{field_name}' not found in model structure"
+            )
+
+        field_info = self.structure.model_fields[field_name]
+        TempModel = create_model(
+            "TempModel", **{field_name: (field_info.annotation, field_info)}  # type: ignore
+        )
+        try:
+            TempModel(**{field_name: field_value})
+        except ValidationError as e:
+            raise ValidationException(
+                f"Validation error for field '{field_name}' with value '{field_value}'",
+                e.errors(),
+            ) from e
+
     def fill_one(self, data: dict[str, str]):
         try:
             model = self.structure.model_validate(data)
