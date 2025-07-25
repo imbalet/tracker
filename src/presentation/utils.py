@@ -26,10 +26,8 @@ def _get_tracker_text(
     fields = tracker["fields"]
 
     text = (
-        f"{additional_str}\n"
-        if additional_str
-        else "" f"{html.bold(name)}\n\n" "Поля:\n"
-    )
+        f"{additional_str}\n" if additional_str else ""
+    ) + f"{html.bold(name)}\n\n" "Поля:\n"
 
     if not fields:
         text += "  -> Пока нет полей\n"
