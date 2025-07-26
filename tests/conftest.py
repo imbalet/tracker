@@ -1,4 +1,6 @@
+import datetime
 from typing import Any
+from uuid import uuid4
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -8,10 +10,13 @@ from src.models import Base
 from src.schemas import (
     TrackerCreate,
     TrackerDataCreate,
+    TrackerDataResponse,
+    TrackerResponse,
     TrackerStructureCreate,
+    TrackerStructureResponse,
     UserCreate,
+    UserResponse,
 )
-from src.schemas.user import UserResponse
 from src.services.database import DataService, TrackerService, UserService
 from tests.config import config
 
@@ -52,6 +57,11 @@ def sample_user_create():
 
 
 @pytest.fixture
+def sample_user_response(sample_user_create):
+    return UserResponse(id=sample_user_create.id)
+
+
+@pytest.fixture
 async def sample_user_created(
     sample_user_create: UserCreate, user_service: UserService
 ):
@@ -59,8 +69,26 @@ async def sample_user_created(
 
 
 @pytest.fixture
-def sample_tracker_create(sample_user_created: UserResponse):
-    return TrackerCreate(name="name", user_id=sample_user_created.id)
+def sample_tracker_create(sample_user_response: UserResponse) -> TrackerCreate:
+    return TrackerCreate(name="name", user_id=sample_user_response.id)
+
+
+@pytest.fixture
+def sample_tracker_response(
+    sample_tracker_create: TrackerCreate,
+    sample_user_response: UserResponse,
+    sample_tracker_structure_response: TrackerStructureResponse,
+) -> TrackerResponse:
+    return TrackerResponse(
+        name=sample_tracker_create.name,
+        user_id=sample_user_response.id,
+        user=sample_user_response,
+        created_at=datetime.datetime.now(datetime.UTC),
+        structure_id=sample_tracker_structure_response.id,
+        data=[],
+        id=uuid4(),
+        structure=sample_tracker_structure_response,
+    )
 
 
 @pytest.fixture
@@ -100,23 +128,48 @@ def sample_tracker_data(sample_tracker_structure: FieldType) -> dict[str, Any]:
 
 
 @pytest.fixture
-def sample_tracker_structure_create(sample_tracker_structure):
+def sample_tracker_structure_create(sample_tracker_structure) -> TrackerStructureCreate:
     return TrackerStructureCreate(data=sample_tracker_structure)
 
 
 @pytest.fixture
-def sample_tracker_data_create(sample_tracker_created):
+def sample_tracker_structure_response(
+    sample_tracker_structure_create: TrackerStructureCreate,
+):
+    return TrackerStructureResponse(
+        data=sample_tracker_structure_create.data,
+        id=uuid4(),
+    )
+
+
+@pytest.fixture
+def sample_tracker_data_create(
+    sample_tracker_response: TrackerResponse,
+) -> TrackerDataCreate:
     return TrackerDataCreate(
-        tracker_id=sample_tracker_created.id, data={"data1": "1", "data2": "yes"}
+        tracker_id=sample_tracker_response.id, data={"data1": "1", "data2": "yes"}
+    )
+
+
+@pytest.fixture
+def sample_tracker_data_response(
+    sample_tracker_data_create: TrackerDataCreate,
+) -> TrackerDataResponse:
+    return TrackerDataResponse(
+        tracker_id=sample_tracker_data_create.tracker_id,
+        data=sample_tracker_data_create.data,
+        id=uuid4(),
+        created_at=datetime.datetime.now(datetime.UTC),
     )
 
 
 @pytest.fixture
 async def sample_tracker_created(
-    sample_tracker_create,
-    sample_tracker_structure_create,
+    sample_tracker_create: TrackerCreate,
+    sample_tracker_structure_create: TrackerStructureCreate,
+    sample_user_created: UserResponse,
     tracker_service: TrackerService,
-):
+) -> TrackerResponse:
     return await tracker_service.create(
         tracker=sample_tracker_create, structure=sample_tracker_structure_create
     )

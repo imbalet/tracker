@@ -26,5 +26,6 @@ async def test_valid_add_data(
     sample_tracker_created: TrackerResponse,
     tracker_service: TrackerService,
 ):
+    sample_tracker_data_create.tracker_id = sample_tracker_created.id
     res = await tracker_service.add_data(sample_tracker_data_create)
     assert res.data == sample_tracker_data_create.data
