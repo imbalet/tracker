@@ -55,6 +55,9 @@ async def start_tracker_creation(message: Message, state: FSMContext) -> None:
 
 @router.message(TrackerCreation.AWAIT_TRACKER_NAME)
 async def process_tracker_name(message: Message, state: FSMContext):
+    if not message.text:
+        await message.answer("Имя должно состоять хотя бы из одного символа")
+        return
     await state.update_data(tracker={"name": message.text, "fields": {}})
     data = await state.get_data()
     await state.set_state(TrackerCreation.AWAIT_FIELD_TYPE)
@@ -91,8 +94,17 @@ async def process_field_type(
 
 @router.message(TrackerCreation.AWAIT_ENUM_VALUES)
 async def process_enum_values(message: Message, state: FSMContext):
+    if not message.text:
+        await message.answer("Сообщение должно включать значения поля enum")
+        return
 
     options = str(message.text).split("/")
+
+    if len(options) < 2:
+        await message.answer(
+            f"Значений enum должно быть более 1, получено {len(options)}"
+        )
+        return
 
     await state.update_data(current_enum_values=message.text)
     await state.set_state(TrackerCreation.AWAIT_FIELD_NAME)
@@ -105,6 +117,9 @@ async def process_enum_values(message: Message, state: FSMContext):
 
 @router.message(TrackerCreation.AWAIT_FIELD_NAME)
 async def process_field_name(message: Message, state: FSMContext):
+    if not message.text:
+        await message.answer("Сообщение должно включать название поля")
+        return
 
     data = await state.get_data()
     field_name = str(message.text).strip()
@@ -116,8 +131,12 @@ async def process_field_name(message: Message, state: FSMContext):
             state=state,
             message=message,
             text=(
-                f'Имя "{message.text}" уже существует,'
-                f'выберете другое имя для поля enum со значениями {data["current_enum_values"]}'
+                f'Имя "{message.text}" уже существует, выберете другое имя для поля {data["current_field_type"]}'
+                + (
+                    f' со значениями {data["current_enum_values"]}'
+                    if data["current_field_type"] == "enum"
+                    else ""
+                )
             ),
         )
         return
@@ -164,6 +183,12 @@ async def process_next_action(
         )
 
     elif callback_data.action == "finish":
+        if len(data["tracker"]["fields"]) == 0:
+            await callback.message.answer(  # type: ignore
+                "Для сохранения в трекере должно быть хотя бы одно поле"
+            )
+            return
+
         uc = CreateTrackerStructureUseCase(tracker_service, user_service)
 
         res = await uc.execute(

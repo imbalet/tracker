@@ -24,7 +24,7 @@ from src.schemas import TrackerResponse, TrackerStructureResponse, UserResponse
 from src.services.database import TrackerService, UserService
 
 
-def create_message(text: str):
+def create_message(text: str | None):
     chat = types.Chat(id=0, type="private")
 
     message = AsyncMock(spec=types.Message)
@@ -78,6 +78,7 @@ async def test_valid_start_tracker_creation(state: FSMContext):
 
 async def test_valid_process_tracker_name(state: FSMContext):
     message = create_message("tracker_name")
+    await state.set_state(TrackerCreation.AWAIT_TRACKER_NAME)
 
     await process_tracker_name(message, state)
     data = await state.get_data()
@@ -89,6 +90,16 @@ async def test_valid_process_tracker_name(state: FSMContext):
     assert "reply_markup" in message.answer.call_args.kwargs
 
 
+@pytest.mark.parametrize("text", [None, ""])
+async def test_empty_name_process_tracker_name(state: FSMContext, text):
+    message = create_message(text)
+    await state.set_state(TrackerCreation.AWAIT_TRACKER_NAME)
+
+    await process_tracker_name(message, state)
+    assert await state.get_state() == TrackerCreation.AWAIT_TRACKER_NAME
+    message.answer.assert_awaited_with("Имя должно состоять хотя бы из одного символа")
+
+
 @pytest.mark.parametrize(
     "callback_data",
     [
@@ -97,8 +108,8 @@ async def test_valid_process_tracker_name(state: FSMContext):
         FieldTypeCallback(type="string"),
     ],
 )
-async def test_valid_process_field_value_simple_types(state: FSMContext, callback_data):
-    message = create_message("tracker_name")
+async def test_valid_process_field_type_simple_types(state: FSMContext, callback_data):
+    message = create_message("")
     callback = create_callback(message)
 
     await process_field_type(callback, callback_data, state)
@@ -108,8 +119,8 @@ async def test_valid_process_field_value_simple_types(state: FSMContext, callbac
     assert data["current_field_type"] == callback_data.type
 
 
-async def test_valid_process_field_value_enum_type(state: FSMContext):
-    message = create_message("tracker_name")
+async def test_valid_process_field_type_enum_type(state: FSMContext):
+    message = create_message("")
     callback = create_callback(message)
     callback_data = FieldTypeCallback(type="enum")
 
@@ -121,6 +132,7 @@ async def test_valid_process_field_value_enum_type(state: FSMContext):
 
 
 async def test_valid_process_enum_values(state: FSMContext):
+    await state.set_state(TrackerCreation.AWAIT_ENUM_VALUES)
     message = create_message("yes/no")
 
     await process_enum_values(message, state)
@@ -128,6 +140,27 @@ async def test_valid_process_enum_values(state: FSMContext):
 
     assert await state.get_state() == TrackerCreation.AWAIT_FIELD_NAME
     assert data["current_enum_values"] == "yes/no"
+
+
+@pytest.mark.parametrize("text", [None, ""])
+async def test_empty_message_process_enum_values(state: FSMContext, text):
+    await state.set_state(TrackerCreation.AWAIT_ENUM_VALUES)
+    message = create_message(text)
+
+    await process_enum_values(message, state)
+
+    assert await state.get_state() == TrackerCreation.AWAIT_ENUM_VALUES
+    message.answer.assert_awaited_with("Сообщение должно включать значения поля enum")
+
+
+async def test_one_option_process_enum_values(state: FSMContext):
+    await state.set_state(TrackerCreation.AWAIT_ENUM_VALUES)
+    message = create_message("text")
+
+    await process_enum_values(message, state)
+
+    assert await state.get_state() == TrackerCreation.AWAIT_ENUM_VALUES
+    message.answer.assert_awaited_with("Значений enum должно быть более 1, получено 1")
 
 
 @pytest.mark.parametrize(
@@ -141,6 +174,7 @@ async def test_valid_process_enum_values(state: FSMContext):
 )
 async def test_valid_process_field_name(state: FSMContext, field_type, enum_values):
     message = create_message("name")
+    await state.set_state(TrackerCreation.AWAIT_FIELD_NAME)
     await state.update_data(tracker={"name": "name", "fields": {}})
     await state.update_data(
         current_field_type=field_type, current_enum_values=enum_values
@@ -153,6 +187,49 @@ async def test_valid_process_field_name(state: FSMContext, field_type, enum_valu
     assert data["current_enum_values"] is None
     assert data["current_field_type"] is None
     assert "name" in data["tracker"]["fields"]
+
+
+@pytest.mark.parametrize("text", [None, ""])
+async def test_empty_message_process_field_name(state: FSMContext, text):
+    message = create_message(text)
+    await state.set_state(TrackerCreation.AWAIT_FIELD_NAME)
+    await state.update_data(tracker={"name": "name", "fields": {}})
+
+    await process_field_name(message, state)
+
+    assert await state.get_state() == TrackerCreation.AWAIT_FIELD_NAME
+    message.answer.assert_awaited_with("Сообщение должно включать название поля")
+
+
+async def test_add_existing_field_name_simple_types_process_field_name(state: FSMContext):
+    message = create_message("existing")
+    await state.set_state(TrackerCreation.AWAIT_FIELD_NAME)
+    await state.update_data(
+        tracker={"name": "name", "fields": {"existing": {"type": "int"}}},
+        current_field_type="int",
+    )
+
+    await process_field_name(message, state)
+
+    assert await state.get_state() == TrackerCreation.AWAIT_FIELD_NAME
+    assert "выберете другое имя для поля" in message.answer.call_args.kwargs["text"]
+
+
+async def test_add_existing_field_name_enum_type_process_field_name(
+    state: FSMContext,
+):
+    message = create_message("existing")
+    await state.set_state(TrackerCreation.AWAIT_FIELD_NAME)
+    await state.update_data(
+        tracker={"name": "name", "fields": {"existing": {"type": "int"}}},
+        current_field_type="enum",
+        current_enum_values="yes/no"
+    )
+
+    await process_field_name(message, state)
+
+    assert await state.get_state() == TrackerCreation.AWAIT_FIELD_NAME
+    assert "со значениями yes/no" in message.answer.call_args.kwargs["text"]
 
 
 async def test_valid_process_next_action_add_field(
@@ -183,7 +260,7 @@ async def test_valid_process_next_action_finish(
     message = create_message("tracker_name")
     callback = create_callback(message)
     callback_data = ActionCallback(action="finish")
-    await state.update_data(tracker={"name": "name", "fields": {}})
+    await state.update_data(tracker={"name": "name", "fields": {"field": {"type": "int"}}})
     uc_mock = MagicMock()
     mocker.patch(
         "src.presentation.routers.create_tracker.CreateTrackerStructureUseCase",

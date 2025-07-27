@@ -17,7 +17,6 @@ class CreateTrackerStructureUseCase:
         if user is None:
             user = await self.user_service.create(user_id)
 
-        self.structure = structure
         self.dj = DynamicJson.from_fields(fields=structure.data)
         res = await self.tracker_service.create(
             tracker=TrackerCreate(name=tracker_name, user_id=user_id),
