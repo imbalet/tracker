@@ -21,12 +21,17 @@ router.callback_query.middleware(CallbackMessageMiddleware())
 
 
 async def update_main_message(
-    state: FSMContext, message: Message, text: str, reply_markup=None, **kwargs
+    state: FSMContext,
+    message: Message,
+    text: str,
+    reply_markup=None,
+    create_new: bool = False,
+    **kwargs,
 ) -> None:
     data = await state.get_data()
     main_message_id = data.get("main_message_id")
 
-    if main_message_id and message.bot:
+    if main_message_id and message.bot and not create_new:
         try:
             await message.bot.edit_message_text(
                 chat_id=message.chat.id,
@@ -43,7 +48,6 @@ async def update_main_message(
 
     msg = await message.answer(text=text, reply_markup=reply_markup, **kwargs)
     await state.update_data(main_message_id=msg.message_id)
-    await message.delete()
 
 
 @router.message(Command("add_tracker"))
@@ -61,9 +65,12 @@ async def process_tracker_name(message: Message, state: FSMContext):
     await state.update_data(tracker={"name": message.text, "fields": {}})
     data = await state.get_data()
     await state.set_state(TrackerCreation.AWAIT_FIELD_TYPE)
-    await message.answer(
-        get_tracker_description(data["tracker"], "Создание трекера"),
+    await update_main_message(
+        state=state,
+        message=message,
+        text=get_tracker_description(data["tracker"], "Создание трекера"),
         reply_markup=build_field_type_keyboard(),
+        create_new=True,
     )
 
 
@@ -95,14 +102,22 @@ async def process_field_type(
 @router.message(TrackerCreation.AWAIT_ENUM_VALUES)
 async def process_enum_values(message: Message, state: FSMContext):
     if not message.text:
-        await message.answer("Сообщение должно включать значения поля enum")
+        await update_main_message(
+            state=state,
+            message=message,
+            text="Сообщение должно включать значения поля enum",
+            create_new=True,
+        )
         return
 
     options = str(message.text).split("/")
 
     if len(options) < 2:
-        await message.answer(
-            f"Значений enum должно быть более 1, получено {len(options)}"
+        await update_main_message(
+            state=state,
+            message=message,
+            text=f"Значений enum должно быть более 1, получено {len(options)}",
+            create_new=True,
         )
         return
 
@@ -112,13 +127,23 @@ async def process_enum_values(message: Message, state: FSMContext):
     text = (
         f"Выбраны следующие значения enum: {", ".join(options)}\nВведите название поля:"
     )
-    await update_main_message(state=state, message=message, text=text)
+    await update_main_message(
+        state=state,
+        message=message,
+        text=text,
+        create_new=True,
+    )
 
 
 @router.message(TrackerCreation.AWAIT_FIELD_NAME)
 async def process_field_name(message: Message, state: FSMContext):
     if not message.text:
-        await message.answer("Сообщение должно включать название поля")
+        await update_main_message(
+            state=state,
+            message=message,
+            text="Сообщение должно включать название поля",
+            create_new=True,
+        )
         return
 
     data = await state.get_data()
@@ -138,6 +163,7 @@ async def process_field_name(message: Message, state: FSMContext):
                     else ""
                 )
             ),
+            create_new=True,
         )
         return
 
@@ -156,6 +182,7 @@ async def process_field_name(message: Message, state: FSMContext):
         message=message,
         text=get_tracker_description(tracker, "Создание трекера"),
         reply_markup=build_action_keyboard(),
+        create_new=True,
     )
 
 
