@@ -9,6 +9,11 @@ services:
       - pgdata:/var/lib/postgresql/data
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   app:
     build: .
@@ -20,8 +25,11 @@ services:
       DB_HOST: db
       DB_PORT: ${DB_PORT}
       BOT_TOKEN: ${BOT_TOKEN}
+    command: sh -c "alembic upgrade head &&
+             .venv/bin/python3 src/main.py"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - app-network
 

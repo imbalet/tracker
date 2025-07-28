@@ -3,40 +3,39 @@ stages:
   - deploy
 
 variables:
+  APP_NAME: "tracker_bot"
+  DOCKER_HOST: "unix:///var/run/docker.sock"
+  DOCKER_TLS_CERTDIR: ""
+
   DB_NAME: "tracker"
   DB_USER: "user"
   DB_PASS: "$SECURE_DB_PASSWORD"
   LOG_LEVEL: "INFO"
   DB_PORT: "5432"
   BOT_TOKEN: "$TELEGRAM_BOT_TOKEN"
-  DOCKER_HOST: tcp://docker:2375/
-  DOCKER_TLS_CERTDIR: ""
 
-before_script:
-  - apk add --no-cache docker-compose
-
-services:
-  - name: docker:dind
-    alias: docker
-    command: ["--tls=false", "--host", "tcp://0.0.0.0:2375"]
 
 test:
   stage: test
-  image: docker/compose:alpine-1.29.2
+  image: docker:28.3.2
+  variables:
+    TEST_DB_NAME: "test_db"
+    TEST_DB_USER: "test_db_user"
+    TEST_DB_PASS: "test_db_password"
+    TEST_DB_PORT: "5432"
+
   script:
-    - echo ${DB_USER}
-    - docker-compose build
-    - docker-compose up -d
-    # - docker-compose exec -T app pytest
-    - docker-compose down
+    - docker compose -f docker-compose.test.yml up --build --abort-on-container-exit
+    - docker compose down -v
   tags:
     - docker
 
 deploy:
   stage: deploy
-  image: docker:stable
+  image: docker:28.3.2
   script:
-    - docker compose up -d
+    - docker compose down
+    - docker compose up --build -d
   tags:
     - docker
-  when: manual
+
