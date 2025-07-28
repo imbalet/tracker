@@ -3,10 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-from aiogram import types
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.storage.base import StorageKey
-from aiogram.fsm.storage.memory import MemoryStorage
 from pytest_mock import MockerFixture
 
 from src.presentation.callbacks import ActionCallback, FieldTypeCallback
@@ -21,48 +18,7 @@ from src.presentation.routers.create_tracker import (
 )
 from src.presentation.states import TrackerCreation
 from src.schemas import TrackerResponse, TrackerStructureResponse, UserResponse
-from src.services.database import TrackerService, UserService
-
-
-def create_message(text: str | None):
-    chat = types.Chat(id=0, type="private")
-
-    message = AsyncMock(spec=types.Message)
-    message.message_id = 0
-    message.chat = chat
-    message.text = text
-    message.date = datetime.datetime.now(datetime.UTC)
-    message.bot = AsyncMock()
-
-    message.answer = AsyncMock()
-    message.delete = AsyncMock()
-    return message
-
-
-def create_callback(message) -> AsyncMock:
-    callback = AsyncMock(types.CallbackQuery)
-    callback.message = message
-    callback.answer = AsyncMock()
-    return callback
-
-
-@pytest.fixture
-def user_service():
-    service = AsyncMock(spec=UserService)
-    return service
-
-
-@pytest.fixture
-def tracker_service():
-    service = AsyncMock(spec=TrackerService)
-    return service
-
-
-@pytest.fixture
-def state():
-    return FSMContext(
-        storage=MemoryStorage(), key=StorageKey(bot_id=0, chat_id=0, user_id=0)
-    )
+from tests.integration.bot.utils import create_callback, create_message
 
 
 async def test_valid_start_tracker_creation(state: FSMContext):
