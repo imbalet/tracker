@@ -25,8 +25,9 @@ test:
     TEST_DB_PORT: "5432"
 
   script:
+    - docker compose -f docker-compose.test.yml down -v
     - docker compose -f docker-compose.test.yml up --build --abort-on-container-exit
-    - docker compose down -v
+    - docker compose -f docker-compose.test.yml down -v
   tags:
     - docker
 
