@@ -19,7 +19,7 @@ from tests.integration.bot.utils import create_callback, create_message
 
 
 async def test_valid_show_trackers(
-    tracker_service, sample_tracker_response: TrackerResponse
+    tracker_service, sample_tracker_response: TrackerResponse, state: FSMContext
 ):
     message = create_message("/my_trackers")
     tracker1 = sample_tracker_response.model_copy()
@@ -29,16 +29,16 @@ async def test_valid_show_trackers(
         return_value=[sample_tracker_response, tracker1]
     )
 
-    await show_trackers(message, tracker_service)
+    await show_trackers(message, state, tracker_service)
     assert "Трекеры:" in message.answer.call_args.kwargs["text"]
     assert "reply_markup" in message.answer.call_args.kwargs
 
 
-async def test_empty_show_trackers(tracker_service):
+async def test_empty_show_trackers(tracker_service, state: FSMContext):
     message = create_message("/my_trackers")
     tracker_service.get_by_user_id = AsyncMock(return_value=[])
 
-    await show_trackers(message, tracker_service)
+    await show_trackers(message, state, tracker_service)
 
     assert "У вас пока нет трекеров" in message.answer.call_args.kwargs["text"]
     assert "reply_markup" not in message.answer.call_args.kwargs
@@ -52,7 +52,7 @@ async def test_valid_describe_tracker(
     tracker_service.get_by_id = AsyncMock(return_value=sample_tracker_response)
 
     await describe_tracker(
-        state, callback, TrackerCallback(id=sample_tracker_response.id), tracker_service
+        callback, TrackerCallback(id=sample_tracker_response.id), state, tracker_service
     )
 
     tracker_service.get_by_id.assert_awaited_with(sample_tracker_response.id)
@@ -65,7 +65,7 @@ async def test_empty_describe_tracker(state: FSMContext, tracker_service):
 
     tracker_id = uuid4()
     await describe_tracker(
-        state, callback, TrackerCallback(id=tracker_id), tracker_service
+        callback, TrackerCallback(id=tracker_id), state, tracker_service
     )
 
     tracker_service.get_by_id.assert_awaited_with(tracker_id)

@@ -1,6 +1,8 @@
 from typing import TypedDict
 
 from aiogram import html
+from aiogram.fsm.context import FSMContext
+from aiogram.types import InaccessibleMessage, MaybeInaccessibleMessageUnion
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.core.dynamic_json.types import FieldDefinition
@@ -9,7 +11,10 @@ from src.presentation.callbacks import (
     CancelCallback,
     FieldCallback,
     FieldTypeCallback,
+    PeriodCallback,
+    TrackerActionsCallback,
     TrackerCallback,
+    TrackerDataActionsCallback,
 )
 from src.schemas import TrackerResponse
 
@@ -112,3 +117,91 @@ def build_tracker_fields_keyboard(
     builder.button(text="Отменить", callback_data=CancelCallback(tracker_id=tracker.id))
     builder.adjust(1)
     return builder.as_markup()
+
+
+def build_tracker_action_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text="Получить данные",
+        callback_data=TrackerActionsCallback(action="get_options"),
+    )
+    builder.button(text="Назад", callback_data=TrackerActionsCallback(action="back"))
+    builder.adjust(2, 1)
+    return builder.as_markup()
+
+
+def build_tracker_data_action_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text="Получить CSV файл",
+        callback_data=TrackerDataActionsCallback(action="csv"),
+    )
+    builder.button(
+        text="Построить график",
+        callback_data=TrackerDataActionsCallback(action="graph"),
+    )
+    builder.button(
+        text="Статистика",
+        callback_data=TrackerDataActionsCallback(action="statistics"),
+    )
+    builder.button(
+        text="Таблица",
+        callback_data=TrackerDataActionsCallback(action="table"),
+    )
+    builder.button(
+        text="Назад", callback_data=TrackerDataActionsCallback(action="back")
+    )
+    builder.adjust(2, 2, 1)
+    return builder.as_markup()
+
+
+def build_period_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.button(text="Года", callback_data=PeriodCallback(period="years"))
+    builder.button(text="Месяцы", callback_data=PeriodCallback(period="months"))
+    builder.button(text="Недели", callback_data=PeriodCallback(period="weeks"))
+    builder.button(text="Дни", callback_data=PeriodCallback(period="days"))
+    builder.button(text="Часы", callback_data=PeriodCallback(period="hours"))
+    builder.button(text="Минуты", callback_data=PeriodCallback(period="minutes"))
+    builder.button(text="Назад", callback_data=PeriodCallback(period="back"))
+    builder.adjust(2, 1)
+    return builder.as_markup()
+
+
+async def update_main_message(
+    state: FSMContext,
+    message: MaybeInaccessibleMessageUnion,
+    text: str,
+    reply_markup=None,
+    create_new: bool = False,
+    **kwargs,
+) -> None:
+    if isinstance(message, InaccessibleMessage):
+        bot = message.bot
+        if bot:
+            await bot.send_message(
+                chat_id=message.chat.id,
+                text="Сообщение недоступно",
+            )
+        return
+
+    data = await state.get_data()
+    main_message_id = data.get("main_message_id")
+
+    if main_message_id and message.bot and not create_new:
+        try:
+            await message.bot.edit_message_text(
+                chat_id=message.chat.id,
+                message_id=main_message_id,
+                text=text,
+                reply_markup=reply_markup,
+                **kwargs,
+            )
+            if main_message_id != message.message_id:
+                await message.delete()
+            return
+        except Exception:
+            pass
+
+    msg = await message.answer(text=text, reply_markup=reply_markup, **kwargs)
+    await state.update_data(main_message_id=msg.message_id)

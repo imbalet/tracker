@@ -12,3 +12,7 @@ class TrackerCreation(StatesGroup):
 class AddingData(StatesGroup):
     AWAIT_FIELD_VALUE = State()
     AWAIT_NEXT_ACTION = State()
+
+
+class DataStates(StatesGroup):
+    AWAIT_PERIOD_VALUE = State()

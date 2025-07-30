@@ -23,3 +23,15 @@ class CancelCallback(CallbackData, prefix="cancel"):
 class FieldCallback(CallbackData, prefix="field"):
     name: str
     tracker_id: UUID
+
+
+class TrackerActionsCallback(CallbackData, prefix="tracker_action"):
+    action: Literal["back", "get_options"]
+
+
+class TrackerDataActionsCallback(CallbackData, prefix="tracker_data_action"):
+    action: Literal["back", "csv", "graph", "table", "statistics"]
+
+
+class PeriodCallback(CallbackData, prefix="period"):
+    period: Literal["back", "years", "months", "weeks", "days", "hours", "minutes"]

@@ -1,17 +1,25 @@
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from src.core.dynamic_json.dynamic_json import DynamicJson
-from src.presentation.callbacks import CancelCallback, FieldCallback, TrackerCallback
+from src.presentation.callbacks import (
+    CancelCallback,
+    FieldCallback,
+    TrackerActionsCallback,
+    TrackerCallback,
+    TrackerDataActionsCallback,
+)
 from src.presentation.middleware import CallbackMessageMiddleware
 from src.presentation.states import AddingData
 from src.presentation.utils import (
+    build_tracker_action_keyboard,
     build_tracker_fields_keyboard,
     build_trackers_keyboard,
     get_tracker_data_description_from_dto,
     get_tracker_description_from_dto,
+    update_main_message,
 )
 from src.schemas import TrackerDataCreate, TrackerResponse
 from src.services.database import TrackerService
@@ -20,52 +28,55 @@ router = Router(name=__name__)
 router.callback_query.middleware(CallbackMessageMiddleware())
 
 
-async def update_main_message(
+@router.callback_query(TrackerActionsCallback.filter(F.action == "back"))
+@router.callback_query(TrackerDataActionsCallback.filter(F.action == "back"))
+async def show_trackers_button(
+    callback: CallbackQuery,
+    callback_data: TrackerDataActionsCallback,
     state: FSMContext,
-    message: Message,
-    text: str,
-    reply_markup=None,
-    create_new: bool = False,
-    **kwargs,
-) -> None:
-    data = await state.get_data()
-    main_message_id = data.get("main_message_id")
+    tracker_service: TrackerService,
+):
+    if not callback.message:
+        callback.answer("Сообщение не найдено", show_alert=True)
+        return
 
-    if main_message_id and message.bot and not create_new:
-        try:
-            await message.bot.edit_message_text(
-                chat_id=message.chat.id,
-                message_id=main_message_id,
-                text=text,
-                reply_markup=reply_markup,
-                **kwargs,
-            )
-            if main_message_id != message.message_id:
-                await message.delete()
-            return
-        except Exception:
-            pass
+    res = await tracker_service.get_by_user_id(str(callback.message.chat.id))
+    if not res:
+        await callback.message.answer(text="У вас пока нет трекеров")
+        return
 
-    msg = await message.answer(text=text, reply_markup=reply_markup, **kwargs)
-    await state.update_data(main_message_id=msg.message_id)
+    await update_main_message(
+        state=state,
+        message=callback.message,
+        text="Трекеры:",
+        reply_markup=build_trackers_keyboard(res),
+    )
+    callback.answer()
 
 
 @router.message(Command("my_trackers"))
-async def show_trackers(message: Message, tracker_service: TrackerService) -> None:
+async def show_trackers(
+    message: Message, state: FSMContext, tracker_service: TrackerService
+) -> None:
     res = await tracker_service.get_by_user_id(str(message.chat.id))
     if not res:
         await message.answer(text="У вас пока нет трекеров")
         return
 
-    keyboard = build_trackers_keyboard(res)
-    await message.answer(text="Трекеры:", reply_markup=keyboard)
+    await update_main_message(
+        state=state,
+        message=message,
+        text="Трекеры:",
+        reply_markup=build_trackers_keyboard(res),
+        create_new=True,
+    )
 
 
 @router.callback_query(TrackerCallback.filter())
 async def describe_tracker(
-    state: FSMContext,
     callback: CallbackQuery,
     callback_data: TrackerCallback,
+    state: FSMContext,
     tracker_service: TrackerService,
 ):
     res = await tracker_service.get_by_id(callback_data.id)
@@ -78,11 +89,13 @@ async def describe_tracker(
         )
         return
 
+    await state.update_data(tracker_id=res.id)
+
     await update_main_message(
         state=state,
         message=callback.message,  # type: ignore
         text=get_tracker_description_from_dto(res),
-        create_new=True,
+        reply_markup=build_tracker_action_keyboard(),
     )
     await callback.answer()
 

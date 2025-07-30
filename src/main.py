@@ -20,6 +20,7 @@ from src.exceptions_handler import (
 from src.presentation.middleware import DBMiddleware
 from src.presentation.routers import (
     create_tracker_router,
+    data_router,
     general_router,
     tracker_control_router,
 )
@@ -53,6 +54,7 @@ async def main() -> None:
     dp.include_router(create_tracker_router)
     dp.include_router(tracker_control_router)
     dp.include_router(general_router)
+    dp.include_router(data_router)
 
     dp.update.middleware(DBMiddleware(await get_sessionmaker()))
     await dp.start_polling(bot)
