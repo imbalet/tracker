@@ -172,7 +172,6 @@ class DataService:
             if from_date is not None:
                 conditions.append(TrackerDataOrm.created_at >= from_date)
             query = select(
-                TrackerDataOrm.id,
                 TrackerDataOrm.created_at.label("date"),
                 data_expr.label("data"),
             ).where(*conditions)
