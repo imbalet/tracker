@@ -3,11 +3,11 @@ from typing import Literal
 from uuid import UUID
 
 from sqlalchemy import Integer, Numeric, cast, func, select
-from sqlalchemy.dialects.postgresql import array
+from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION, array
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.models import TrackerDataOrm
-from src.schemas import AggregatedNumericData, DataResult
+from src.schemas import AggregatedNumericData, DataResult, StaticticsTrackerData
 
 AggregateType = Literal["min", "max", "avg", "sum"]
 
@@ -180,3 +180,73 @@ class DataService:
             rows = res.all()
 
             return [DataResult(date=row.date, value=row.data) for row in rows]
+
+    async def get_statistics(
+        self,
+        tracker_id: UUID,
+        numeric_fields: list[str] | None,
+        categorial_fields: list[str] | None,
+        from_date: datetime | None = None,
+    ) -> list[StaticticsTrackerData]:
+        async with self.session_factory() as session:
+            selects = []
+            if numeric_fields:
+                for field in numeric_fields:
+                    field_expr = cast(
+                        TrackerDataOrm.data[field].astext, DOUBLE_PRECISION
+                    )
+                    selects.extend(
+                        [
+                            func.min(field_expr).label(f"{field}_min"),
+                            func.max(field_expr).label(f"{field}_max"),
+                            func.avg(field_expr).label(f"{field}_avg"),
+                            func.sum(field_expr).label(f"{field}_sum"),
+                            func.count(field_expr).label(f"{field}_count"),
+                        ]
+                    )
+            if categorial_fields:
+                for field in categorial_fields:
+                    field_expr = TrackerDataOrm.data[field].astext
+                    selects.extend(
+                        [
+                            func.mode().within_group(field_expr).label(f"{field}_mode"),
+                            func.count(field_expr).label(f"{field}_count"),
+                        ]
+                    )
+            conditions = [TrackerDataOrm.tracker_id == tracker_id]
+            if from_date is not None:
+                conditions.append(TrackerDataOrm.created_at >= from_date)
+
+            stmt = select(*selects).where(*conditions)
+            res = await session.execute(stmt)
+            row = res.one_or_none()
+            result = []
+            if numeric_fields:
+                result.extend(
+                    [
+                        StaticticsTrackerData(
+                            field_name=field,
+                            type="numeric",
+                            min=getattr(row, f"{field}_min", -1),
+                            max=getattr(row, f"{field}_max", -1),
+                            avg=getattr(row, f"{field}_avg", -1),
+                            sum=getattr(row, f"{field}_sum", -1),
+                            count=getattr(row, f"{field}_count", 0),
+                        )
+                        for field in numeric_fields
+                    ]
+                )
+            if categorial_fields:
+                result.extend(
+                    [
+                        StaticticsTrackerData(
+                            field_name=field,
+                            type="categorial",
+                            mode=getattr(row, f"{field}_mode", ""),
+                            count=getattr(row, f"{field}_count", 0),
+                        )
+                        for field in categorial_fields
+                    ]
+                )
+
+            return result

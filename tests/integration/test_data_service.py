@@ -144,3 +144,28 @@ async def test_valid_get_all_data_filter_fields(
     assert len(res) == 10
     assert "int_name" not in res[0].value
     assert "float_name" not in res[0].value
+
+
+async def test_valid_get_statistics_all_fields(
+    sample_tracker_created: TrackerResponse,
+    tracker_service: TrackerService,
+    data_service: DataService,
+):
+    data = [i for i in generate_tracker_data(sample_tracker_created.structure.data, 10)]
+    _ = await insert_data(data, tracker_service, sample_tracker_created)
+
+    res = await data_service.get_statistics(
+        sample_tracker_created.id,
+        numeric_fields=["int_name", "float_name"],
+        categorial_fields=["string_name", "enum_name"],
+    )
+
+    for field in res:
+        assert field.count
+        if field.type == "numeric":
+            assert field.min
+            assert field.max
+            assert field.avg
+            assert field.sum
+        if field.type == "categorial":
+            assert field.mode
