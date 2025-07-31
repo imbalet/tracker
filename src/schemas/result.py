@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 
 class DataResult(BaseModel):
-    id: int
     date: datetime
     value: Any
 

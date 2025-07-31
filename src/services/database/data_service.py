@@ -1,7 +1,9 @@
-from typing import Any, Literal
+from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from sqlalchemy import Integer, Numeric, cast, func, select
+from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.models import TrackerDataOrm
@@ -15,7 +17,7 @@ class DataService:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self.session_factory = session_factory
 
-    async def get_field_by_name(self, tracker_id: UUID, name: str) -> list[Any]:
+    async def get_field_by_name(self, tracker_id: UUID, name: str) -> list[DataResult]:
         async with self.session_factory() as session:
             stmt = (
                 select(
@@ -31,7 +33,6 @@ class DataService:
             res = await session.execute(stmt)
             return [
                 DataResult(
-                    id=row.id,
                     date=row.date,
                     value=row.value,
                 )
@@ -152,3 +153,31 @@ class DataService:
                 AggregatedNumericData.model_validate(row, from_attributes=True)
                 for row in res.all()
             ]
+
+    async def get_all_data(
+        self,
+        tracker_id: UUID,
+        from_date: datetime | None = None,
+        exclude_fields: list[str] | None = None,
+    ) -> list[DataResult]:
+        exclude_fields = exclude_fields or []
+
+        async with self.session_factory() as session:
+            if exclude_fields:
+                data_expr = TrackerDataOrm.data.op("-")(array(exclude_fields))
+            else:
+                data_expr = TrackerDataOrm.data
+
+            conditions = [TrackerDataOrm.tracker_id == tracker_id]
+            if from_date is not None:
+                conditions.append(TrackerDataOrm.created_at >= from_date)
+            query = select(
+                TrackerDataOrm.id,
+                TrackerDataOrm.created_at.label("date"),
+                data_expr.label("data"),
+            ).where(*conditions)
+
+            res = await session.execute(query)
+            rows = res.all()
+
+            return [DataResult(date=row.date, value=row.data) for row in rows]

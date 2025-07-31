@@ -113,3 +113,34 @@ async def test_valid_get_sum_fields_interval(
         interval=2,
     )
     assert res
+
+
+async def test_valid_get_all_data(
+    sample_tracker_created: TrackerResponse,
+    tracker_service: TrackerService,
+    data_service: DataService,
+):
+    data = [i for i in generate_tracker_data(sample_tracker_created.structure.data, 10)]
+    inserted = await insert_data(data, tracker_service, sample_tracker_created)
+
+    res = await data_service.get_all_data(tracker_id=sample_tracker_created.id)
+    assert len(res) == 10
+    assert res[0].value == inserted[0].data
+    assert "int_name" in res[0].value
+    assert "float_name" in res[0].value
+
+
+async def test_valid_get_all_data_filter_fields(
+    sample_tracker_created: TrackerResponse,
+    tracker_service: TrackerService,
+    data_service: DataService,
+):
+    data = [i for i in generate_tracker_data(sample_tracker_created.structure.data, 10)]
+    _ = await insert_data(data, tracker_service, sample_tracker_created)
+
+    res = await data_service.get_all_data(
+        tracker_id=sample_tracker_created.id, exclude_fields=["int_name", "float_name"]
+    )
+    assert len(res) == 10
+    assert "int_name" not in res[0].value
+    assert "float_name" not in res[0].value
