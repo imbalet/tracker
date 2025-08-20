@@ -16,3 +16,4 @@ class AddingData(StatesGroup):
 
 class DataStates(StatesGroup):
     AWAIT_PERIOD_VALUE = State()
+    AWAIT_FIELDS_SELECTION = State()

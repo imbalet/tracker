@@ -7,6 +7,9 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.types.input_file import BufferedInputFile
 
 from src.presentation.callbacks import (
+    CancelCallback,
+    ConfirmCallback,
+    FieldCallback,
     PeriodCallback,
     TrackerActionsCallback,
     TrackerDataActionsCallback,
@@ -15,10 +18,12 @@ from src.presentation.states import DataStates
 from src.presentation.utils import (
     build_period_keyboard,
     build_tracker_data_action_keyboard,
+    build_tracker_fields_keyboard,
     update_main_message,
 )
 from src.services.database.data_service import DataService
-from src.use_cases import GetCSVUseCase
+from src.services.database.tracker_service import TrackerService
+from src.use_cases import GetCSVUseCase, GetStatisticsUseCase
 
 router = Router(name=__name__)
 
@@ -108,18 +113,21 @@ def convert_date(
 
 @router.message(DataStates.AWAIT_PERIOD_VALUE)
 async def handle_period_value(
-    message: Message, state: FSMContext, data_service: DataService
+    message: Message,
+    state: FSMContext,
+    data_service: DataService,
+    tracker_service: TrackerService,
 ):
     if not message.text or not message.text.isdecimal():
         message.answer("Ошибочное значение")
         return
     await state.update_data(period_value=int(message.text))
-    await state.set_state(None)
     data = await state.get_data()
     action = data["action"]
 
     match action:
         case "csv":
+            await state.set_state(None)
             uc = GetCSVUseCase(data_service)
             res = await uc.execute(
                 data["tracker_id"], convert_date(data["period_type"], int(message.text))
@@ -136,4 +144,99 @@ async def handle_period_value(
             await message.answer("TODO")
             pass
         case "statistics":
-            await message.answer("stats")
+            await state.set_state(DataStates.AWAIT_FIELDS_SELECTION)
+            tracker = await tracker_service.get_by_id(data["tracker_id"])
+            await state.update_data(selected_fields=[])
+            await update_main_message(
+                state=state,
+                message=message,
+                text="Выберете поля",
+                reply_markup=build_tracker_fields_keyboard(
+                    tracker,
+                    extra_buttons=[
+                        ("Готово", ConfirmCallback(tracker_id=data["tracker_id"]))
+                    ],
+                ),
+            )
+
+
+@router.callback_query(DataStates.AWAIT_FIELDS_SELECTION, FieldCallback.filter())
+async def handle_field(
+    callback: CallbackQuery,
+    callback_data: FieldCallback,
+    state: FSMContext,
+    tracker_service: TrackerService,
+):
+    field_name = callback_data.name
+    data = await state.get_data()
+    selected_fields: list = data["selected_fields"]
+    if field_name in selected_fields:
+        selected_fields.remove(field_name)
+    else:
+        selected_fields.append(field_name)
+    await state.update_data(selected_fields=selected_fields)
+
+    fields_text = "\n".join([f"- {i}" for i in selected_fields])
+    tracker = await tracker_service.get_by_id(data["tracker_id"])
+    await update_main_message(
+        state=state,
+        message=callback.message,  # type: ignore
+        text=f"Выбранные поля: {fields_text}",
+        reply_markup=build_tracker_fields_keyboard(
+            tracker,
+            extra_buttons=[("Готово", ConfirmCallback(tracker_id=data["tracker_id"]))],
+        ),
+    )
+
+
+@router.callback_query(DataStates.AWAIT_FIELDS_SELECTION, CancelCallback.filter())
+async def handle_field_cancel(
+    callback: CallbackQuery,
+    state: FSMContext,
+):
+    await state.set_state(None)
+    await state.update_data(selected_fields=None)
+    await callback.message.delete()  # type: ignore
+
+
+@router.callback_query(DataStates.AWAIT_FIELDS_SELECTION, ConfirmCallback.filter())
+async def handle_field_confirm(
+    callback: CallbackQuery,
+    state: FSMContext,
+    data_service: DataService,
+    tracker_service: TrackerService,
+):
+    await state.set_state(None)
+    # await state.update_data(selected_fields=None)
+    data = await state.get_data()
+    selected_fields: list = data["selected_fields"]
+    tracker = await tracker_service.get_by_id(data["tracker_id"])
+    numeric_fields = [
+        i
+        for i in selected_fields
+        if tracker.structure.data[i]["type"] in ("int", "float")
+    ]
+    categorial_fields = [
+        i
+        for i in selected_fields
+        if tracker.structure.data[i]["type"] not in ("int", "float")
+    ]
+
+    uc = GetStatisticsUseCase(data_service=data_service)
+    res = await uc.execute(
+        categorial_fields=categorial_fields,
+        numeric_fields=numeric_fields,
+        tracker_id=data["tracker_id"],
+        from_date=convert_date(data["period_type"], data["period_value"]),
+    )
+    await update_main_message(
+        state=state,
+        message=callback.message,  # type: ignore
+        # TODO move statistics presentation to a data model
+        text="\n".join(
+            [
+                f"- {i.field_name}: min - {i.min}, max - {i.max}, avg - {i.avg}, sum - {i.sum}, count - {i.count}"
+                for i in res
+            ]
+        ),
+    )

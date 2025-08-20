@@ -20,6 +20,10 @@ class CancelCallback(CallbackData, prefix="cancel"):
     tracker_id: UUID
 
 
+class ConfirmCallback(CallbackData, prefix="confirm"):
+    tracker_id: UUID
+
+
 class FieldCallback(CallbackData, prefix="field"):
     name: str
     tracker_id: UUID

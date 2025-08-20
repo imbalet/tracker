@@ -3,6 +3,7 @@ from datetime import datetime
 from io import BytesIO, TextIOWrapper
 from uuid import UUID
 
+from src.schemas.result import StaticticsTrackerData
 from src.services.database import DataService
 
 
@@ -42,3 +43,23 @@ class GetCSVUseCase:
         csv_buffer.seek(0)
         text_buffer.detach()
         return csv_buffer
+
+
+class GetStatisticsUseCase:
+    def __init__(self, data_service: DataService) -> None:
+        self.data_service = data_service
+
+    async def execute(
+        self,
+        tracker_id: UUID,
+        numeric_fields: list[str],
+        categorial_fields: list[str],
+        from_date: datetime | None = None,
+    ) -> list[StaticticsTrackerData]:
+        stats = await self.data_service.get_statistics(
+            tracker_id=tracker_id,
+            numeric_fields=numeric_fields,
+            categorial_fields=categorial_fields,
+            from_date=from_date,
+        )
+        return stats

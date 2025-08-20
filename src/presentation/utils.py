@@ -1,6 +1,7 @@
 from typing import TypedDict
 
 from aiogram import html
+from aiogram.filters.callback_data import CallbackData
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InaccessibleMessage, MaybeInaccessibleMessageUnion
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -104,8 +105,11 @@ def build_trackers_keyboard(data: list[TrackerResponse]):
 
 
 def build_tracker_fields_keyboard(
-    tracker: TrackerResponse, exclude_fields: set[str] | None = None
+    tracker: TrackerResponse,
+    exclude_fields: set[str] | None = None,
+    extra_buttons: list[tuple[str, CallbackData]] | None = None,
 ):
+    extra_buttons = extra_buttons or []
     builder = InlineKeyboardBuilder()
     for name, props in tracker.structure.data.items():
         if exclude_fields and name in exclude_fields:
@@ -113,6 +117,11 @@ def build_tracker_fields_keyboard(
         builder.button(
             text=f"{name}: {props['type'] if props['type'] != 'enum' else props['values']}",  # type: ignore
             callback_data=FieldCallback(name=name, tracker_id=tracker.id),
+        )
+    for text, callback in extra_buttons:
+        builder.button(
+            text=text,
+            callback_data=callback,
         )
     builder.button(text="Отменить", callback_data=CancelCallback(tracker_id=tracker.id))
     builder.adjust(1)
