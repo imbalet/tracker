@@ -1,18 +1,17 @@
-from aiogram import F, Router
-from aiogram.filters import Command
+from aiogram import Router
+from aiogram.filters import Command, or_f
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from src.core.dynamic_json.dynamic_json import DynamicJson
 from src.presentation.callbacks import (
+    BackCallback,
     CancelCallback,
     FieldCallback,
-    TrackerActionsCallback,
     TrackerCallback,
-    TrackerDataActionsCallback,
 )
 from src.presentation.middleware import CallbackMessageMiddleware
-from src.presentation.states import AddingData
+from src.presentation.states import AddingData, DataState, TrackerControlState
 from src.presentation.utils import (
     build_tracker_action_keyboard,
     build_tracker_fields_keyboard,
@@ -28,16 +27,21 @@ router = Router(name=__name__)
 router.callback_query.middleware(CallbackMessageMiddleware())
 
 
-@router.callback_query(TrackerActionsCallback.filter(F.action == "back"))
-@router.callback_query(TrackerDataActionsCallback.filter(F.action == "back"))
+@router.callback_query(
+    or_f(
+        DataState.AWAIT_FIELDS_SELECTION,
+        TrackerControlState.AWAIT_TRACKER_ACTION,
+        DataState.AWAIT_ACTION,
+    ),
+    BackCallback.filter(),
+)
 async def show_trackers_button(
     callback: CallbackQuery,
-    callback_data: TrackerDataActionsCallback,
     state: FSMContext,
     tracker_service: TrackerService,
 ):
     if not callback.message:
-        callback.answer("Сообщение не найдено", show_alert=True)
+        await callback.answer("Сообщение не найдено", show_alert=True)
         return
 
     res = await tracker_service.get_by_user_id(str(callback.message.chat.id))
@@ -51,7 +55,7 @@ async def show_trackers_button(
         text="Трекеры:",
         reply_markup=build_trackers_keyboard(res),
     )
-    callback.answer()
+    await callback.answer()
 
 
 @router.message(Command("my_trackers"))
@@ -90,12 +94,15 @@ async def describe_tracker(
         return
 
     await state.update_data(tracker_id=res.id)
+    await state.set_state(TrackerControlState.AWAIT_TRACKER_ACTION)
 
     await update_main_message(
         state=state,
         message=callback.message,  # type: ignore
         text=get_tracker_description_from_dto(res),
-        reply_markup=build_tracker_action_keyboard(),
+        reply_markup=build_tracker_action_keyboard(
+            extra_buttons=[("Назад", BackCallback())]
+        ),
     )
     await callback.answer()
 
@@ -108,22 +115,25 @@ async def start_tracking(
 
     parts = message.text.split(maxsplit=1)  # type: ignore
     if len(parts) < 2:
+        # TODO: add menu with trackers
         await message.answer(text="Ошибка: Не указан трекер!")
         return
     tracker_name = parts[1].strip()
 
-    res = await tracker_service.get_by_name(tracker_name)
-    if not res:
+    tracker = await tracker_service.get_by_name(tracker_name)
+    if not tracker:
         await message.answer(text=f"Трекер '{tracker_name}' не найден")
         return
-
-    await state.update_data(current_tracker=res.model_dump_json())
+    await state.update_data(current_tracker=tracker.model_dump_json())
     await state.set_state(AddingData.AWAIT_NEXT_ACTION)
+
     await update_main_message(
         state=state,
         message=message,
-        text=get_tracker_data_description_from_dto(res, data={}),
-        reply_markup=build_tracker_fields_keyboard(res),
+        text=get_tracker_data_description_from_dto(tracker, data={}),
+        reply_markup=build_tracker_fields_keyboard(
+            tracker, extra_buttons=[("Отмена", CancelCallback())]
+        ),
         create_new=True,
     )
 
@@ -177,7 +187,9 @@ async def handle_field_value(
             text=get_tracker_data_description_from_dto(tracker, field_values),
             message=message,  # type: ignore
             reply_markup=build_tracker_fields_keyboard(
-                tracker, set(field_values.keys())
+                tracker,
+                set(field_values.keys()),
+                extra_buttons=[("Отмена", CancelCallback())],
             ),
             create_new=True,
         )

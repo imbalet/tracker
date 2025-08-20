@@ -12,7 +12,8 @@ from src.presentation.routers.create_tracker import (
     process_enum_values,
     process_field_name,
     process_field_type,
-    process_next_action,
+    process_next_action_add_field,
+    process_next_action_finish,
     process_tracker_name,
     start_tracker_creation,
 )
@@ -208,12 +209,9 @@ async def test_valid_process_next_action_add_field(
     await state.update_data(tracker={"name": "name", "fields": {}})
 
     src_data = await state.get_data()
-    await process_next_action(
+    await process_next_action_add_field(
         callback,
-        callback_data,
         state,
-        tracker_service=tracker_service,
-        user_service=user_service,
     )
     data = await state.get_data()
 
@@ -250,9 +248,8 @@ async def test_valid_process_next_action_finish(
         )
     )
 
-    await process_next_action(
+    await process_next_action_finish(
         callback,
-        callback_data,
         state,
         tracker_service=tracker_service,
         user_service=user_service,

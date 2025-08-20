@@ -7,6 +7,7 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.types.input_file import BufferedInputFile
 
 from src.presentation.callbacks import (
+    BackCallback,
     CancelCallback,
     ConfirmCallback,
     FieldCallback,
@@ -14,7 +15,7 @@ from src.presentation.callbacks import (
     TrackerActionsCallback,
     TrackerDataActionsCallback,
 )
-from src.presentation.states import DataStates
+from src.presentation.states import DataState
 from src.presentation.utils import (
     build_period_keyboard,
     build_tracker_data_action_keyboard,
@@ -29,36 +30,41 @@ router = Router(name=__name__)
 
 
 @router.callback_query(TrackerActionsCallback.filter(F.action == "get_options"))
-@router.callback_query(PeriodCallback.filter(F.period == "back"))
+@router.callback_query(DataState.AWAIT_PERIOD_TYPE, BackCallback.filter())
 async def tracker_actions_options(callback: CallbackQuery, state: FSMContext):
+    await state.update_data(period_type=None)
+
+    await state.set_state(DataState.AWAIT_ACTION)
     await update_main_message(
         state=state,
         message=callback.message,  # type: ignore
         text="Выберете действие",
-        reply_markup=build_tracker_data_action_keyboard(),
+        reply_markup=build_tracker_data_action_keyboard(
+            extra_buttons=[("Назад", BackCallback())]
+        ),
     )
-    await state.set_state(None)
-    await state.update_data(period_type=None)
     await callback.answer()
 
 
-@router.callback_query(TrackerDataActionsCallback.filter(F.action != "back"))
+@router.callback_query(TrackerDataActionsCallback.filter())
 async def period_type_select(
     callback: CallbackQuery,
     callback_data: TrackerDataActionsCallback,
     state: FSMContext,
 ):
+    await state.set_state(DataState.AWAIT_PERIOD_TYPE)
+    await state.update_data(action=callback_data.action)
+
     await update_main_message(
         state=state,
         message=callback.message,  # type: ignore
         text="Выберете единицу измерения периода",
-        reply_markup=build_period_keyboard(),
+        reply_markup=build_period_keyboard(extra_buttons=[("Назад", BackCallback())]),
     )
-    await state.update_data(action=callback_data.action)
     await callback.answer()
 
 
-@router.callback_query(PeriodCallback.filter(F.period != "back"))
+@router.callback_query(PeriodCallback.filter())
 async def period_select(
     callback: CallbackQuery,
     callback_data: PeriodCallback,
@@ -86,11 +92,12 @@ async def period_select(
         message=callback.message,  # type: ignore
         text=f"Введите число {period_word}",
     )
-    await state.set_state(DataStates.AWAIT_PERIOD_VALUE)
+    await state.set_state(DataState.AWAIT_PERIOD_VALUE)
     await state.update_data(period_type=callback_data.period)
     await callback.answer()
 
 
+# TODO: move to utils
 def convert_date(
     date_type: Literal["years", "months", "weeks", "days", "hours", "minutes"],
     count: int,
@@ -111,7 +118,7 @@ def convert_date(
             return now_datetime - timedelta(minutes=count)
 
 
-@router.message(DataStates.AWAIT_PERIOD_VALUE)
+@router.message(DataState.AWAIT_PERIOD_VALUE)
 async def handle_period_value(
     message: Message,
     state: FSMContext,
@@ -119,7 +126,7 @@ async def handle_period_value(
     tracker_service: TrackerService,
 ):
     if not message.text or not message.text.isdecimal():
-        message.answer("Ошибочное значение")
+        await message.answer("Ошибочное значение")
         return
     await state.update_data(period_value=int(message.text))
     data = await state.get_data()
@@ -144,7 +151,7 @@ async def handle_period_value(
             await message.answer("TODO")
             pass
         case "statistics":
-            await state.set_state(DataStates.AWAIT_FIELDS_SELECTION)
+            await state.set_state(DataState.AWAIT_FIELDS_SELECTION)
             tracker = await tracker_service.get_by_id(data["tracker_id"])
             await state.update_data(selected_fields=[])
             await update_main_message(
@@ -154,13 +161,14 @@ async def handle_period_value(
                 reply_markup=build_tracker_fields_keyboard(
                     tracker,
                     extra_buttons=[
-                        ("Готово", ConfirmCallback(tracker_id=data["tracker_id"]))
+                        ("Готово", ConfirmCallback()),
+                        ("Отмена", CancelCallback()),
                     ],
                 ),
             )
 
 
-@router.callback_query(DataStates.AWAIT_FIELDS_SELECTION, FieldCallback.filter())
+@router.callback_query(DataState.AWAIT_FIELDS_SELECTION, FieldCallback.filter())
 async def handle_field(
     callback: CallbackQuery,
     callback_data: FieldCallback,
@@ -184,12 +192,14 @@ async def handle_field(
         text=f"Выбранные поля: {fields_text}",
         reply_markup=build_tracker_fields_keyboard(
             tracker,
-            extra_buttons=[("Готово", ConfirmCallback(tracker_id=data["tracker_id"]))],
+            marked_fields=set(selected_fields),
+            mark="✅",
+            extra_buttons=[("Готово", ConfirmCallback())],
         ),
     )
 
 
-@router.callback_query(DataStates.AWAIT_FIELDS_SELECTION, CancelCallback.filter())
+@router.callback_query(DataState.AWAIT_FIELDS_SELECTION, CancelCallback.filter())
 async def handle_field_cancel(
     callback: CallbackQuery,
     state: FSMContext,
@@ -199,7 +209,7 @@ async def handle_field_cancel(
     await callback.message.delete()  # type: ignore
 
 
-@router.callback_query(DataStates.AWAIT_FIELDS_SELECTION, ConfirmCallback.filter())
+@router.callback_query(DataState.AWAIT_FIELDS_SELECTION, ConfirmCallback.filter())
 async def handle_field_confirm(
     callback: CallbackQuery,
     state: FSMContext,

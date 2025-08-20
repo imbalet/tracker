@@ -4,7 +4,7 @@ from uuid import UUID
 from aiogram.filters.callback_data import CallbackData
 
 
-class FieldTypeCallback(CallbackData, prefix="field_type"):
+class FieldTypeCallback(CallbackData, prefix="field"):
     type: Literal["int", "float", "enum", "string"]
 
 
@@ -12,30 +12,34 @@ class ActionCallback(CallbackData, prefix="action"):
     action: Literal["add_field", "finish", "cancel"]
 
 
-class TrackerCallback(CallbackData, prefix="tracker_"):
+class TrackerCallback(CallbackData, prefix="tracker"):
     id: UUID
 
 
+class BackCallback(CallbackData, prefix="back"):
+    pass
+
+
 class CancelCallback(CallbackData, prefix="cancel"):
-    tracker_id: UUID
+    pass
 
 
 class ConfirmCallback(CallbackData, prefix="confirm"):
-    tracker_id: UUID
+    pass
 
 
 class FieldCallback(CallbackData, prefix="field"):
     name: str
-    tracker_id: UUID
+    type: str  # TODO literal
 
 
 class TrackerActionsCallback(CallbackData, prefix="tracker_action"):
-    action: Literal["back", "get_options"]
+    action: Literal["get_options"]
 
 
 class TrackerDataActionsCallback(CallbackData, prefix="tracker_data_action"):
-    action: Literal["back", "csv", "graph", "table", "statistics"]
+    action: Literal["csv", "graph", "table", "statistics"]
 
 
 class PeriodCallback(CallbackData, prefix="period"):
-    period: Literal["back", "years", "months", "weeks", "days", "hours", "minutes"]
+    period: Literal["years", "months", "weeks", "days", "hours", "minutes"]

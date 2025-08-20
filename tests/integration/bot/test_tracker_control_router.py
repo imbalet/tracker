@@ -108,7 +108,7 @@ async def test_empty_start_tracking(state: FSMContext, tracker_service):
 async def test_valid_handle_field(state: FSMContext):
     message = create_message("")
     callback = create_callback(message)
-    callback_data = FieldCallback(name="field_name", tracker_id=uuid4())
+    callback_data = FieldCallback(name="field_name", type="int")
 
     await handle_field(callback, callback_data, state)
 

@@ -9,11 +9,17 @@ class TrackerCreation(StatesGroup):
     AWAIT_NEXT_ACTION = State()
 
 
+class TrackerControlState(StatesGroup):
+    AWAIT_TRACKER_ACTION = State()
+
+
 class AddingData(StatesGroup):
     AWAIT_FIELD_VALUE = State()
     AWAIT_NEXT_ACTION = State()
 
 
-class DataStates(StatesGroup):
+class DataState(StatesGroup):
+    AWAIT_ACTION = State()
+    AWAIT_PERIOD_TYPE = State()
     AWAIT_PERIOD_VALUE = State()
     AWAIT_FIELDS_SELECTION = State()

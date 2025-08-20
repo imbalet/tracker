@@ -17,6 +17,7 @@ FieldDataType = Literal["int", "float", "string", "enum"]
 field_types_list: list[FieldDataType] = ["int", "float", "string", "enum"]
 
 
+# TODO rewrite to dataclass
 class FieldDefinition(TypedDict):
     type: FieldDataType
     values: NotRequired[str | None]  # only for enum type
