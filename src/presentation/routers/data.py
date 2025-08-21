@@ -15,6 +15,13 @@ from src.presentation.callbacks import (
     TrackerActionsCallback,
     TrackerDataActionsCallback,
 )
+from src.presentation.constants import (
+    ST_DT_ACTION,
+    ST_DT_PERIOD_TYPE,
+    ST_DT_PERIOD_VALUE,
+    ST_DT_SELECTED_FIELDS,
+    ST_TRACKER_ID,
+)
 from src.presentation.states import DataState
 from src.presentation.utils import (
     CallbackQueryWithMessage,
@@ -35,8 +42,6 @@ router = Router(name=__name__)
 async def tracker_actions_options(
     callback: CallbackQueryWithMessage, state: FSMContext
 ):
-    await state.update_data(period_type=None)
-
     await state.set_state(DataState.AWAIT_ACTION)
     await update_main_message(
         state=state,
@@ -56,7 +61,7 @@ async def period_type_select(
     state: FSMContext,
 ):
     await state.set_state(DataState.AWAIT_PERIOD_TYPE)
-    await state.update_data(action=callback_data.action)
+    await state.update_data(data={ST_DT_ACTION: callback_data.action})
 
     await update_main_message(
         state=state,
@@ -96,7 +101,7 @@ async def period_select(
         text=f"Введите число {period_word}",
     )
     await state.set_state(DataState.AWAIT_PERIOD_VALUE)
-    await state.update_data(period_type=callback_data.period)
+    await state.update_data(data={ST_DT_PERIOD_TYPE: callback_data.period})
     await callback.answer()
 
 
@@ -131,16 +136,17 @@ async def handle_period_value(
     if not message.text or not message.text.isdecimal():
         await message.answer("Ошибочное значение")
         return
-    await state.update_data(period_value=int(message.text))
+    await state.update_data(data={ST_DT_PERIOD_VALUE: int(message.text)})
     data = await state.get_data()
-    action = data["action"]
+    action = data[ST_DT_ACTION]
 
     match action:
         case "csv":
             await state.set_state(None)
             uc = GetCSVUseCase(data_service)
             res = await uc.execute(
-                data["tracker_id"], convert_date(data["period_type"], int(message.text))
+                data[ST_TRACKER_ID],
+                convert_date(data[ST_DT_PERIOD_TYPE], int(message.text)),
             )
             file = BufferedInputFile(res.getvalue(), filename="data.csv")
             await message.answer("Вам будет отправлен CSV файл с данными.")
@@ -155,8 +161,8 @@ async def handle_period_value(
             pass
         case "statistics":
             await state.set_state(DataState.AWAIT_FIELDS_SELECTION)
-            tracker = await tracker_service.get_by_id(data["tracker_id"])
-            await state.update_data(selected_fields=[])
+            tracker = await tracker_service.get_by_id(data[ST_TRACKER_ID])
+            await state.update_data(data={ST_DT_SELECTED_FIELDS: []})
             await update_main_message(
                 state=state,
                 message=message,
@@ -180,15 +186,15 @@ async def handle_field(
 ):
     field_name = callback_data.name
     data = await state.get_data()
-    selected_fields: list = data["selected_fields"]
+    selected_fields: list = data[ST_DT_SELECTED_FIELDS]
     if field_name in selected_fields:
         selected_fields.remove(field_name)
     else:
         selected_fields.append(field_name)
-    await state.update_data(selected_fields=selected_fields)
+    await state.update_data(data={ST_DT_SELECTED_FIELDS: selected_fields})
 
     fields_text = "\n".join([f"- {i}" for i in selected_fields])
-    tracker = await tracker_service.get_by_id(data["tracker_id"])
+    tracker = await tracker_service.get_by_id(data[ST_TRACKER_ID])
     await update_main_message(
         state=state,
         message=callback.message,
@@ -209,7 +215,7 @@ async def handle_field_cancel(
 ):
     # TODO: change
     await state.set_state(None)
-    await state.update_data(selected_fields=None)
+    await state.clear()
     await callback.message.delete()
 
 
@@ -222,8 +228,8 @@ async def handle_field_confirm(
 ):
     await state.set_state(None)
     data = await state.get_data()
-    selected_fields: list = data["selected_fields"]
-    tracker = await tracker_service.get_by_id(data["tracker_id"])
+    selected_fields: list = data[ST_DT_SELECTED_FIELDS]
+    tracker = await tracker_service.get_by_id(data[ST_TRACKER_ID])
     numeric_fields = [
         i
         for i in selected_fields
@@ -239,8 +245,8 @@ async def handle_field_confirm(
     res = await uc.execute(
         categorial_fields=categorial_fields,
         numeric_fields=numeric_fields,
-        tracker_id=data["tracker_id"],
-        from_date=convert_date(data["period_type"], data["period_value"]),
+        tracker_id=data[ST_TRACKER_ID],
+        from_date=convert_date(data[ST_DT_PERIOD_TYPE], data[ST_DT_PERIOD_VALUE]),
     )
     await update_main_message(
         state=state,

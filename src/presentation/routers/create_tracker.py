@@ -4,6 +4,11 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from src.presentation.callbacks import ActionCallback, CancelCallback, FieldTypeCallback
+from src.presentation.constants import (
+    ST_CR_CUR_ENUM_VALUES,
+    ST_CR_CUR_FIELD_TYPE,
+    ST_CR_TRACKER,
+)
 from src.presentation.middleware import CallbackMessageMiddleware
 from src.presentation.states import TrackerCreation
 from src.presentation.utils import (
@@ -35,7 +40,7 @@ async def process_tracker_name(message: Message, state: FSMContext):
         await message.answer("Имя должно состоять хотя бы из одного символа")
         return
 
-    await state.update_data(tracker={"name": message.text, "fields": {}})
+    await state.update_data(data={ST_CR_TRACKER: {"name": message.text, "fields": {}}})
     await state.set_state(TrackerCreation.AWAIT_FIELD_TYPE)
 
     await update_main_message(
@@ -57,7 +62,7 @@ async def process_field_type(
     callback_data: FieldTypeCallback,
     state: FSMContext,
 ):
-    await state.update_data(current_field_type=callback_data.type)
+    await state.update_data(data={ST_CR_CUR_FIELD_TYPE: callback_data.type})
 
     if callback_data.type == "enum":
         next_state = TrackerCreation.AWAIT_ENUM_VALUES
@@ -98,7 +103,7 @@ async def process_enum_values(message: Message, state: FSMContext):
         )
         return
 
-    await state.update_data(current_enum_values=message.text)
+    await state.update_data(data={ST_CR_CUR_ENUM_VALUES: message.text})
     await state.set_state(TrackerCreation.AWAIT_FIELD_NAME)
 
     text = (
@@ -125,18 +130,18 @@ async def process_field_name(message: Message, state: FSMContext):
 
     data = await state.get_data()
     field_name = str(message.text).strip()
-    field_type = data["current_field_type"]
-    tracker = data["tracker"]
+    field_type = data[ST_CR_CUR_FIELD_TYPE]
+    tracker = data[ST_CR_TRACKER]
 
     if field_name in tracker["fields"]:
         await update_main_message(
             state=state,
             message=message,
             text=(
-                f'Имя "{message.text}" уже существует, выберете другое имя для поля {data["current_field_type"]}'
+                f'Имя "{message.text}" уже существует, выберете другое имя для поля {data[ST_CR_CUR_FIELD_TYPE]}'
                 + (
-                    f' со значениями {data["current_enum_values"]}'
-                    if data["current_field_type"] == "enum"
+                    f" со значениями {data[ST_CR_CUR_ENUM_VALUES]}"
+                    if data[ST_CR_CUR_FIELD_TYPE] == "enum"
                     else ""
                 )
             ),
@@ -146,11 +151,15 @@ async def process_field_name(message: Message, state: FSMContext):
 
     field_data = {"type": field_type}
     if field_data["type"] == "enum":
-        field_data["values"] = data.get("current_enum_values", "")
+        field_data["values"] = data.get(ST_CR_CUR_ENUM_VALUES, "")
     tracker["fields"][field_name] = field_data
 
     await state.update_data(
-        tracker=tracker, current_field_type=None, current_enum_values=None
+        data={
+            ST_CR_TRACKER: tracker,
+            ST_CR_CUR_FIELD_TYPE: None,
+            ST_CR_CUR_ENUM_VALUES: None,
+        }
     )
     await state.set_state(TrackerCreation.AWAIT_NEXT_ACTION)
 
@@ -170,7 +179,7 @@ async def process_next_action_add_field(
     callback: CallbackQueryWithMessage, state: FSMContext
 ):
     data = await state.get_data()
-    tracker = data["tracker"]
+    tracker = data[ST_CR_TRACKER]
     await state.set_state(TrackerCreation.AWAIT_FIELD_TYPE)
     await update_main_message(
         state=state,
@@ -192,8 +201,8 @@ async def process_next_action_finish(
     user_service: UserService,
 ):
     data = await state.get_data()
-    tracker = data["tracker"]
-    if len(data["tracker"]["fields"]) == 0:
+    tracker = data[ST_CR_TRACKER]
+    if len(tracker["fields"]) == 0:
         await callback.message.answer(
             "Для сохранения в трекере должно быть хотя бы одно поле"
         )
@@ -203,7 +212,7 @@ async def process_next_action_finish(
     res = await uc.execute(
         user_id=str(callback.message.chat.id),
         tracker_name=tracker["name"],
-        structure=TrackerStructureCreate(data=data["tracker"]["fields"]),
+        structure=TrackerStructureCreate(data=tracker["fields"]),
     )
 
     await update_main_message(

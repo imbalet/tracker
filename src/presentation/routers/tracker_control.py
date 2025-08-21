@@ -10,6 +10,12 @@ from src.presentation.callbacks import (
     FieldCallback,
     TrackerCallback,
 )
+from src.presentation.constants import (
+    ST_TR_CURRENT_FIELD,
+    ST_TR_CURRENT_TRACKER,
+    ST_TR_FIELD_VALUES,
+    ST_TRACKER_ID,
+)
 from src.presentation.middleware import CallbackMessageMiddleware
 from src.presentation.states import AddingData, DataState, TrackerControlState
 from src.presentation.utils import (
@@ -90,7 +96,7 @@ async def describe_tracker(
         )
         return
 
-    await state.update_data(tracker_id=res.id)
+    await state.update_data(data={ST_TRACKER_ID: res.id})
     await state.set_state(TrackerControlState.AWAIT_TRACKER_ACTION)
 
     await update_main_message(
@@ -121,7 +127,7 @@ async def start_tracking(
     if not tracker:
         await message.answer(text=f"Трекер '{tracker_name}' не найден")
         return
-    await state.update_data(current_tracker=tracker.model_dump_json())
+    await state.update_data(data={ST_TR_CURRENT_TRACKER: tracker.model_dump_json()})
     await state.set_state(AddingData.AWAIT_NEXT_ACTION)
 
     await update_main_message(
@@ -139,7 +145,7 @@ async def start_tracking(
 async def handle_field(
     callback: CallbackQueryWithMessage, callback_data: FieldCallback, state: FSMContext
 ):
-    await state.update_data(current_field=callback_data.name)
+    await state.update_data(data={ST_TR_CURRENT_FIELD: callback_data.name})
     await state.set_state(AddingData.AWAIT_FIELD_VALUE)
 
     await update_main_message(
@@ -155,15 +161,15 @@ async def handle_field_value(
     message: Message, state: FSMContext, tracker_service: TrackerService
 ):
     data = await state.get_data()
-    current_field = data["current_field"]
-    field_values: dict = data.get("field_values", {})
+    current_field = data[ST_TR_CURRENT_FIELD]
+    field_values: dict = data.get(ST_TR_FIELD_VALUES, {})
     current_field_value = message.text
     field_values[current_field] = current_field_value
 
-    tracker = TrackerResponse.model_validate_json(data["current_tracker"])
+    tracker = TrackerResponse.model_validate_json(data[ST_TR_CURRENT_TRACKER])
     dj = DynamicJson.from_fields(fields=tracker.structure.data)
     dj.validate_one_field(current_field, str(current_field_value))
-    await state.update_data(field_values=field_values)
+    await state.update_data(data={ST_TR_FIELD_VALUES: field_values})
 
     if len(field_values) == len(tracker.structure.data):
         dj.validate(field_values)
