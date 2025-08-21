@@ -1,7 +1,7 @@
 from aiogram import Router
 from aiogram.filters import Command, or_f
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import Message
 
 from src.core.dynamic_json.dynamic_json import DynamicJson
 from src.presentation.callbacks import (
@@ -13,6 +13,7 @@ from src.presentation.callbacks import (
 from src.presentation.middleware import CallbackMessageMiddleware
 from src.presentation.states import AddingData, DataState, TrackerControlState
 from src.presentation.utils import (
+    CallbackQueryWithMessage,
     build_tracker_action_keyboard,
     build_tracker_fields_keyboard,
     build_trackers_keyboard,
@@ -36,14 +37,10 @@ router.callback_query.middleware(CallbackMessageMiddleware())
     BackCallback.filter(),
 )
 async def show_trackers_button(
-    callback: CallbackQuery,
+    callback: CallbackQueryWithMessage,
     state: FSMContext,
     tracker_service: TrackerService,
 ):
-    if not callback.message:
-        await callback.answer("Сообщение не найдено", show_alert=True)
-        return
-
     res = await tracker_service.get_by_user_id(str(callback.message.chat.id))
     if not res:
         await callback.message.answer(text="У вас пока нет трекеров")
@@ -78,7 +75,7 @@ async def show_trackers(
 
 @router.callback_query(TrackerCallback.filter())
 async def describe_tracker(
-    callback: CallbackQuery,
+    callback: CallbackQueryWithMessage,
     callback_data: TrackerCallback,
     state: FSMContext,
     tracker_service: TrackerService,
@@ -87,7 +84,7 @@ async def describe_tracker(
     if not res:
         await update_main_message(
             state=state,
-            message=callback.message,  # type: ignore
+            message=callback.message,
             text="Трекер не найден",
             create_new=True,
         )
@@ -98,7 +95,7 @@ async def describe_tracker(
 
     await update_main_message(
         state=state,
-        message=callback.message,  # type: ignore
+        message=callback.message,
         text=get_tracker_description_from_dto(res),
         reply_markup=build_tracker_action_keyboard(
             extra_buttons=[("Назад", BackCallback())]
@@ -112,7 +109,7 @@ async def start_tracking(
     message: Message, state: FSMContext, tracker_service: TrackerService
 ) -> None:
     await state.clear()
-
+    # text can't be empty
     parts = message.text.split(maxsplit=1)  # type: ignore
     if len(parts) < 2:
         # TODO: add menu with trackers
@@ -140,7 +137,7 @@ async def start_tracking(
 
 @router.callback_query(AddingData.AWAIT_NEXT_ACTION, FieldCallback.filter())
 async def handle_field(
-    callback: CallbackQuery, callback_data: FieldCallback, state: FSMContext
+    callback: CallbackQueryWithMessage, callback_data: FieldCallback, state: FSMContext
 ):
     await state.update_data(current_field=callback_data.name)
     await state.set_state(AddingData.AWAIT_FIELD_VALUE)
@@ -148,7 +145,7 @@ async def handle_field(
     await update_main_message(
         state=state,
         text=f"Введите значение поля {callback_data.name}",
-        message=callback.message,  # type: ignore
+        message=callback.message,
     )
     await callback.answer()
 
@@ -161,7 +158,7 @@ async def handle_field_value(
     current_field = data["current_field"]
     field_values: dict = data.get("field_values", {})
     current_field_value = message.text
-    field_values[current_field] = current_field_value  # type: ignore
+    field_values[current_field] = current_field_value
 
     tracker = TrackerResponse.model_validate_json(data["current_tracker"])
     dj = DynamicJson.from_fields(fields=tracker.structure.data)
@@ -185,7 +182,7 @@ async def handle_field_value(
         await update_main_message(
             state=state,
             text=get_tracker_data_description_from_dto(tracker, field_values),
-            message=message,  # type: ignore
+            message=message,
             reply_markup=build_tracker_fields_keyboard(
                 tracker,
                 set(field_values.keys()),
@@ -196,9 +193,9 @@ async def handle_field_value(
 
 
 @router.callback_query(AddingData.AWAIT_NEXT_ACTION, CancelCallback.filter())
-async def handle_cancel(callback: CallbackQuery, state: FSMContext):
+async def handle_cancel(callback: CallbackQueryWithMessage, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text(  # type: ignore
+    await callback.message.edit_text(
         text="Добавление данных отменено",
         reply_markup=None,
     )

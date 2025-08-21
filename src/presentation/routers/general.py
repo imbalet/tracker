@@ -11,7 +11,7 @@ router.callback_query.middleware(CallbackMessageMiddleware())
 
 @router.message(Command("start"))
 async def start_tracker_creation(message: Message, user_service: UserService) -> None:
-    user = await user_service.get(str(message.chat.id))  # type: ignore
+    user = await user_service.get(str(message.chat.id))
     if user is None:
         user = await user_service.create(str(message.chat.id))
     await message.answer("Привет. Это бот для трекинга")

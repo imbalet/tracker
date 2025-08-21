@@ -1,12 +1,13 @@
 from aiogram import F, Router
 from aiogram.filters import Command, or_f
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import Message
 
 from src.presentation.callbacks import ActionCallback, CancelCallback, FieldTypeCallback
 from src.presentation.middleware import CallbackMessageMiddleware
 from src.presentation.states import TrackerCreation
 from src.presentation.utils import (
+    CallbackQueryWithMessage,
     build_action_keyboard,
     build_field_type_keyboard,
     get_tracker_description,
@@ -52,7 +53,9 @@ async def process_tracker_name(message: Message, state: FSMContext):
 
 @router.callback_query(TrackerCreation.AWAIT_FIELD_TYPE, FieldTypeCallback.filter())
 async def process_field_type(
-    callback: CallbackQuery, callback_data: FieldTypeCallback, state: FSMContext
+    callback: CallbackQueryWithMessage,
+    callback_data: FieldTypeCallback,
+    state: FSMContext,
 ):
     await state.update_data(current_field_type=callback_data.type)
 
@@ -68,7 +71,7 @@ async def process_field_type(
 
     await update_main_message(
         state=state,
-        message=callback.message,  # type: ignore
+        message=callback.message,
         text=message_text,
     )
     await callback.answer()
@@ -163,13 +166,15 @@ async def process_field_name(message: Message, state: FSMContext):
 @router.callback_query(
     TrackerCreation.AWAIT_NEXT_ACTION, ActionCallback.filter(F.action == "add_field")
 )
-async def process_next_action_add_field(callback: CallbackQuery, state: FSMContext):
+async def process_next_action_add_field(
+    callback: CallbackQueryWithMessage, state: FSMContext
+):
     data = await state.get_data()
     tracker = data["tracker"]
     await state.set_state(TrackerCreation.AWAIT_FIELD_TYPE)
     await update_main_message(
         state=state,
-        message=callback.message,  # type: ignore
+        message=callback.message,
         text=get_tracker_description(tracker, "Создание трекера"),
         reply_markup=build_field_type_keyboard(
             extra_buttons=[("Отмена", CancelCallback())]
@@ -181,7 +186,7 @@ async def process_next_action_add_field(callback: CallbackQuery, state: FSMConte
     TrackerCreation.AWAIT_NEXT_ACTION, ActionCallback.filter(F.action == "finish")
 )
 async def process_next_action_finish(
-    callback: CallbackQuery,
+    callback: CallbackQueryWithMessage,
     state: FSMContext,
     tracker_service: TrackerService,
     user_service: UserService,
@@ -189,21 +194,21 @@ async def process_next_action_finish(
     data = await state.get_data()
     tracker = data["tracker"]
     if len(data["tracker"]["fields"]) == 0:
-        await callback.message.answer(  # type: ignore
+        await callback.message.answer(
             "Для сохранения в трекере должно быть хотя бы одно поле"
         )
         return
 
     uc = CreateTrackerStructureUseCase(tracker_service, user_service)
     res = await uc.execute(
-        user_id=str(callback.message.chat.id),  # type: ignore
+        user_id=str(callback.message.chat.id),
         tracker_name=tracker["name"],
         structure=TrackerStructureCreate(data=data["tracker"]["fields"]),
     )
 
     await update_main_message(
         state=state,
-        message=callback.message,  # type: ignore
+        message=callback.message,
         text=f"Трекер создан!\n\n{get_tracker_description_from_dto(res, "Создание трекера")}",
     )
     await state.clear()
@@ -214,10 +219,10 @@ async def process_next_action_finish(
     or_f(TrackerCreation.AWAIT_FIELD_TYPE, TrackerCreation.AWAIT_NEXT_ACTION),
     CancelCallback.filter(),
 )
-async def cancel_creation(callback: CallbackQuery, state: FSMContext):
+async def cancel_creation(callback: CallbackQueryWithMessage, state: FSMContext):
     await update_main_message(
         state=state,
-        message=callback.message,  # type: ignore
+        message=callback.message,
         text="Создание трекера отменено",
     )
     await state.clear()

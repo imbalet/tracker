@@ -3,7 +3,7 @@ from typing import Literal
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import Message
 from aiogram.types.input_file import BufferedInputFile
 
 from src.presentation.callbacks import (
@@ -17,6 +17,7 @@ from src.presentation.callbacks import (
 )
 from src.presentation.states import DataState
 from src.presentation.utils import (
+    CallbackQueryWithMessage,
     build_period_keyboard,
     build_tracker_data_action_keyboard,
     build_tracker_fields_keyboard,
@@ -31,13 +32,15 @@ router = Router(name=__name__)
 
 @router.callback_query(TrackerActionsCallback.filter(F.action == "get_options"))
 @router.callback_query(DataState.AWAIT_PERIOD_TYPE, BackCallback.filter())
-async def tracker_actions_options(callback: CallbackQuery, state: FSMContext):
+async def tracker_actions_options(
+    callback: CallbackQueryWithMessage, state: FSMContext
+):
     await state.update_data(period_type=None)
 
     await state.set_state(DataState.AWAIT_ACTION)
     await update_main_message(
         state=state,
-        message=callback.message,  # type: ignore
+        message=callback.message,
         text="Выберете действие",
         reply_markup=build_tracker_data_action_keyboard(
             extra_buttons=[("Назад", BackCallback())]
@@ -48,7 +51,7 @@ async def tracker_actions_options(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(TrackerDataActionsCallback.filter())
 async def period_type_select(
-    callback: CallbackQuery,
+    callback: CallbackQueryWithMessage,
     callback_data: TrackerDataActionsCallback,
     state: FSMContext,
 ):
@@ -57,7 +60,7 @@ async def period_type_select(
 
     await update_main_message(
         state=state,
-        message=callback.message,  # type: ignore
+        message=callback.message,
         text="Выберете единицу измерения периода",
         reply_markup=build_period_keyboard(extra_buttons=[("Назад", BackCallback())]),
     )
@@ -66,7 +69,7 @@ async def period_type_select(
 
 @router.callback_query(PeriodCallback.filter())
 async def period_select(
-    callback: CallbackQuery,
+    callback: CallbackQueryWithMessage,
     callback_data: PeriodCallback,
     state: FSMContext,
 ):
@@ -89,7 +92,7 @@ async def period_select(
 
     await update_main_message(
         state=state,
-        message=callback.message,  # type: ignore
+        message=callback.message,
         text=f"Введите число {period_word}",
     )
     await state.set_state(DataState.AWAIT_PERIOD_VALUE)
@@ -170,7 +173,7 @@ async def handle_period_value(
 
 @router.callback_query(DataState.AWAIT_FIELDS_SELECTION, FieldCallback.filter())
 async def handle_field(
-    callback: CallbackQuery,
+    callback: CallbackQueryWithMessage,
     callback_data: FieldCallback,
     state: FSMContext,
     tracker_service: TrackerService,
@@ -188,7 +191,7 @@ async def handle_field(
     tracker = await tracker_service.get_by_id(data["tracker_id"])
     await update_main_message(
         state=state,
-        message=callback.message,  # type: ignore
+        message=callback.message,
         text=f"Выбранные поля: {fields_text}",
         reply_markup=build_tracker_fields_keyboard(
             tracker,
@@ -201,23 +204,23 @@ async def handle_field(
 
 @router.callback_query(DataState.AWAIT_FIELDS_SELECTION, CancelCallback.filter())
 async def handle_field_cancel(
-    callback: CallbackQuery,
+    callback: CallbackQueryWithMessage,
     state: FSMContext,
 ):
+    # TODO: change
     await state.set_state(None)
     await state.update_data(selected_fields=None)
-    await callback.message.delete()  # type: ignore
+    await callback.message.delete()
 
 
 @router.callback_query(DataState.AWAIT_FIELDS_SELECTION, ConfirmCallback.filter())
 async def handle_field_confirm(
-    callback: CallbackQuery,
+    callback: CallbackQueryWithMessage,
     state: FSMContext,
     data_service: DataService,
     tracker_service: TrackerService,
 ):
     await state.set_state(None)
-    # await state.update_data(selected_fields=None)
     data = await state.get_data()
     selected_fields: list = data["selected_fields"]
     tracker = await tracker_service.get_by_id(data["tracker_id"])
@@ -241,7 +244,7 @@ async def handle_field_confirm(
     )
     await update_main_message(
         state=state,
-        message=callback.message,  # type: ignore
+        message=callback.message,
         # TODO move statistics presentation to a data model
         text="\n".join(
             [
