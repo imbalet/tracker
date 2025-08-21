@@ -40,15 +40,14 @@ async def process_tracker_name(message: Message, state: FSMContext):
         await message.answer("Имя должно состоять хотя бы из одного символа")
         return
 
-    await state.update_data(data={ST_CR_TRACKER: {"name": message.text, "fields": {}}})
+    tracker_dict = {"name": message.text, "fields": {}}
+    await state.update_data(data={ST_CR_TRACKER: tracker_dict})
     await state.set_state(TrackerCreation.AWAIT_FIELD_TYPE)
 
     await update_main_message(
         state=state,
         message=message,
-        text=get_tracker_description(
-            {"name": message.text, "fields": {}}, "Создание трекера"
-        ),
+        text=get_tracker_description(tracker_dict, "Создание трекера"),  # type: ignore
         reply_markup=build_field_type_keyboard(
             extra_buttons=[("Отмена", CancelCallback())]
         ),
@@ -150,7 +149,7 @@ async def process_field_name(message: Message, state: FSMContext):
         return
 
     field_data = {"type": field_type}
-    if field_data["type"] == "enum":
+    if field_type == "enum":
         field_data["values"] = data.get(ST_CR_CUR_ENUM_VALUES, "")
     tracker["fields"][field_name] = field_data
 

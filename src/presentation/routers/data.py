@@ -1,6 +1,3 @@
-from datetime import datetime, timedelta, timezone
-from typing import Literal
-
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
@@ -16,6 +13,7 @@ from src.presentation.callbacks import (
     TrackerDataActionsCallback,
 )
 from src.presentation.constants import (
+    PERIOD_TYPES,
     ST_DT_ACTION,
     ST_DT_PERIOD_TYPE,
     ST_DT_PERIOD_VALUE,
@@ -28,6 +26,7 @@ from src.presentation.utils import (
     build_period_keyboard,
     build_tracker_data_action_keyboard,
     build_tracker_fields_keyboard,
+    convert_date,
     update_main_message,
 )
 from src.services.database.data_service import DataService
@@ -37,6 +36,7 @@ from src.use_cases import GetCSVUseCase, GetStatisticsUseCase
 router = Router(name=__name__)
 
 
+@router.callback_query(DataState.AWAIT_FIELDS_SELECTION, CancelCallback.filter())
 @router.callback_query(TrackerActionsCallback.filter(F.action == "get_options"))
 @router.callback_query(DataState.AWAIT_PERIOD_TYPE, BackCallback.filter())
 async def tracker_actions_options(
@@ -78,52 +78,16 @@ async def period_select(
     callback_data: PeriodCallback,
     state: FSMContext,
 ):
-    # TODO: Use dict
-    match callback_data.period:
-        case "years":
-            period_word = "лет"
-        case "months":
-            period_word = "месяцев"
-        case "weeks":
-            period_word = "недель"
-        case "days":
-            period_word = "дней"
-        case "hours":
-            period_word = "часов"
-        case "minutes":
-            period_word = "минут"
-        case _:
-            period_word = "чего-либо"
+    period_word = PERIOD_TYPES[callback_data.period]
+    await state.set_state(DataState.AWAIT_PERIOD_VALUE)
+    await state.update_data(data={ST_DT_PERIOD_TYPE: callback_data.period})
 
     await update_main_message(
         state=state,
         message=callback.message,
         text=f"Введите число {period_word}",
     )
-    await state.set_state(DataState.AWAIT_PERIOD_VALUE)
-    await state.update_data(data={ST_DT_PERIOD_TYPE: callback_data.period})
     await callback.answer()
-
-
-# TODO: move to utils
-def convert_date(
-    date_type: Literal["years", "months", "weeks", "days", "hours", "minutes"],
-    count: int,
-) -> datetime:
-    now_datetime = datetime.now(timezone.utc)
-    match date_type:
-        case "years":
-            return now_datetime - timedelta(days=(365 * count))
-        case "months":
-            return now_datetime - timedelta(days=(30 * count))
-        case "weeks":
-            return now_datetime - timedelta(weeks=count)
-        case "days":
-            return now_datetime - timedelta(days=count)
-        case "hours":
-            return now_datetime - timedelta(hours=count)
-        case "minutes":
-            return now_datetime - timedelta(minutes=count)
 
 
 @router.message(DataState.AWAIT_PERIOD_VALUE)
@@ -136,13 +100,19 @@ async def handle_period_value(
     if not message.text or not message.text.isdecimal():
         await message.answer("Ошибочное значение")
         return
-    await state.update_data(data={ST_DT_PERIOD_VALUE: int(message.text)})
+    try:
+        period_value = int(message.text)
+    except (ValueError, TypeError):
+        await message.answer("Ошибочное значение")
+        return
+
+    await state.update_data(data={ST_DT_PERIOD_VALUE: period_value})
     data = await state.get_data()
     action = data[ST_DT_ACTION]
 
     match action:
         case "csv":
-            await state.set_state(None)
+            await state.clear()
             uc = GetCSVUseCase(data_service)
             res = await uc.execute(
                 data[ST_TRACKER_ID],
@@ -203,20 +173,12 @@ async def handle_field(
             tracker,
             marked_fields=set(selected_fields),
             mark="✅",
-            extra_buttons=[("Готово", ConfirmCallback())],
+            extra_buttons=[
+                ("Готово", ConfirmCallback()),
+                ("Отмена", CancelCallback()),
+            ],
         ),
     )
-
-
-@router.callback_query(DataState.AWAIT_FIELDS_SELECTION, CancelCallback.filter())
-async def handle_field_cancel(
-    callback: CallbackQueryWithMessage,
-    state: FSMContext,
-):
-    # TODO: change
-    await state.set_state(None)
-    await state.clear()
-    await callback.message.delete()
 
 
 @router.callback_query(DataState.AWAIT_FIELDS_SELECTION, ConfirmCallback.filter())
@@ -252,6 +214,7 @@ async def handle_field_confirm(
         state=state,
         message=callback.message,
         # TODO move statistics presentation to a data model
+        # TODO: add categorial fields processing
         text="\n".join(
             [
                 f"- {i.field_name}: min - {i.min}, max - {i.max}, avg - {i.avg}, sum - {i.sum}, count - {i.count}"
