@@ -7,6 +7,7 @@ from src.core.dynamic_json.dynamic_json import DynamicJson
 from src.presentation.callbacks import (
     BackCallback,
     CancelCallback,
+    EnumValuesCallback,
     FieldCallback,
     TrackerCallback,
 )
@@ -21,6 +22,7 @@ from src.presentation.middleware import CallbackMessageMiddleware
 from src.presentation.states import AddingData, DataState, TrackerControlState
 from src.presentation.utils import (
     CallbackQueryWithMessage,
+    build_enum_values_keyboard,
     build_tracker_action_keyboard,
     build_tracker_fields_keyboard,
     build_trackers_keyboard,
@@ -156,14 +158,76 @@ async def handle_field(
     state: FSMContext,
     lang: Language,
 ):
+    data = await state.get_data()
     await state.update_data(data={ST_TR_CURRENT_FIELD: callback_data.name})
     await state.set_state(AddingData.AWAIT_FIELD_VALUE)
 
-    await update_main_message(
-        state=state,
-        text=t(lang, MsgKey.TR_ENTER_FIELD_VALUE, field_name=callback_data.name),
-        message=callback.message,
-    )
+    tracker = TrackerResponse.model_validate_json(data[ST_TR_CURRENT_TRACKER])
+    field_type = tracker.structure.data[callback_data.name]["type"]
+
+    if field_type == "enum":
+        enum_values = (
+            tracker.structure.data[callback_data.name].get("values", "").split("/")  # type: ignore
+        )
+
+        await update_main_message(
+            state=state,
+            message=callback.message,
+            text=t(lang, MsgKey.TR_ENTER_FIELD_VALUE, field_name=callback_data.name),
+            reply_markup=build_enum_values_keyboard(values=enum_values, lang=lang),
+        )
+    else:
+        await update_main_message(
+            state=state,
+            text=t(lang, MsgKey.TR_ENTER_FIELD_VALUE, field_name=callback_data.name),
+            message=callback.message,
+        )
+    await callback.answer()
+
+
+@router.callback_query(AddingData.AWAIT_FIELD_VALUE, EnumValuesCallback.filter())
+async def handle_enum_value(
+    callback: CallbackQueryWithMessage,
+    callback_data: EnumValuesCallback,
+    state: FSMContext,
+    tracker_service: TrackerService,
+    lang: Language,
+):
+    data = await state.get_data()
+    current_field = data[ST_TR_CURRENT_FIELD]
+    field_values: dict = data.get(ST_TR_FIELD_VALUES, {})
+    current_field_value = callback_data.value
+    field_values[current_field] = current_field_value
+
+    tracker = TrackerResponse.model_validate_json(data[ST_TR_CURRENT_TRACKER])
+    dj = DynamicJson.from_fields(fields=tracker.structure.data)
+    dj.validate_one_field(current_field, str(current_field_value))
+    await state.update_data(data={ST_TR_FIELD_VALUES: field_values})
+
+    if len(field_values) == len(tracker.structure.data):
+        dj.validate(field_values)
+        await tracker_service.add_data(
+            TrackerDataCreate(tracker_id=tracker.id, data=field_values)
+        )
+        await update_main_message(
+            state=state,
+            text=t(lang, MsgKey.TR_DATA_SAVED),
+            message=callback.message,
+        )
+        await state.clear()
+    else:
+        await state.set_state(AddingData.AWAIT_NEXT_ACTION)
+        await update_main_message(
+            state=state,
+            text=get_tracker_data_description_from_dto(tracker, field_values),
+            message=callback.message,
+            reply_markup=build_tracker_fields_keyboard(
+                tracker,
+                lang,
+                set(field_values.keys()),
+                extra_buttons=[(t(lang, MsgKey.CANCEL), CancelCallback())],
+            ),
+        )
     await callback.answer()
 
 

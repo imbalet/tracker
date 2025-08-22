@@ -43,3 +43,7 @@ class TrackerDataActionsCallback(CallbackData, prefix="tracker_data_action"):
 
 class PeriodCallback(CallbackData, prefix="period"):
     period: Literal["years", "months", "weeks", "days", "hours", "minutes"]
+
+
+class EnumValuesCallback(CallbackData, prefix="enum"):
+    value: str

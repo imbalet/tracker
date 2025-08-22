@@ -9,6 +9,7 @@ from aiogram.types import (
 from src.presentation.callbacks import (
     ActionCallback,
     CancelCallback,
+    EnumValuesCallback,
     FieldCallback,
     FieldTypeCallback,
     PeriodCallback,
@@ -287,4 +288,18 @@ def build_period_keyboard(
         )
         .row_buttons_tuple(*extra_buttons)
     )
+    return builder.as_markup()
+
+
+def build_enum_values_keyboard(
+    values: list[str],
+    lang: Language,
+    extra_buttons: list[tuple[str, CallbackData]] | None = None,
+):
+    extra_buttons = extra_buttons or []
+    builder = InlineKeyboardFactory()
+
+    for i in values:
+        builder.button(text=i, callback_data=EnumValuesCallback(value=i))
+    builder.row_buttons_tuple(*extra_buttons)
     return builder.as_markup()
