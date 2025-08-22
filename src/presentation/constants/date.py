@@ -1,12 +1,14 @@
 from datetime import timedelta
 
+from src.presentation.constants.text import MsgKey
+
 PERIOD_TYPES = {
-    "years": "лет",
-    "months": "месяцев",
-    "weeks": "недель",
-    "days": "дней",
-    "hours": "часов",
-    "minutes": "минут",
+    "years": MsgKey.DATE_YEARS,
+    "months": MsgKey.DATE_MONTHS,
+    "weeks": MsgKey.DATE_WEEKS,
+    "days": MsgKey.DATE_DAYS,
+    "hours": MsgKey.DATE_HOURS,
+    "minutes": MsgKey.DATE_MINUTES,
 }
 
 PERIOD_DELTAS = {

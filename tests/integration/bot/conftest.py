@@ -25,3 +25,8 @@ def state():
     return FSMContext(
         storage=MemoryStorage(), key=StorageKey(bot_id=0, chat_id=0, user_id=0)
     )
+
+
+@pytest.fixture
+def lang():
+    return "ru"

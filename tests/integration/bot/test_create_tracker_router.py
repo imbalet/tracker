@@ -6,7 +6,8 @@ import pytest
 from aiogram.fsm.context import FSMContext
 from pytest_mock import MockerFixture
 
-from src.presentation.callbacks import ActionCallback, FieldTypeCallback
+from src.presentation.callbacks import FieldTypeCallback
+from src.presentation.constants.text import Language
 from src.presentation.routers.create_tracker import (
     cancel_creation,
     process_enum_values,
@@ -21,23 +22,25 @@ from src.presentation.states import TrackerCreation
 from src.schemas import TrackerResponse, TrackerStructureResponse, UserResponse
 from tests.integration.bot.utils import create_callback, create_message
 
+# TODO add translation for strings
 
-async def test_valid_start_tracker_creation(state: FSMContext):
+
+async def test_valid_start_tracker_creation(state: FSMContext, lang: Language):
     message = create_message("/add_tracker")
     await state.update_data(temp_data="temp")
 
-    await start_tracker_creation(message, state)
+    await start_tracker_creation(message, state, lang)
 
     assert await state.get_state() == TrackerCreation.AWAIT_TRACKER_NAME
     assert len(await state.get_data()) == 0
     message.answer.assert_awaited_with("Введите название трекера:")
 
 
-async def test_valid_process_tracker_name(state: FSMContext):
+async def test_valid_process_tracker_name(state: FSMContext, lang: Language):
     message = create_message("tracker_name")
     await state.set_state(TrackerCreation.AWAIT_TRACKER_NAME)
 
-    await process_tracker_name(message, state)
+    await process_tracker_name(message, state, lang)
     data = await state.get_data()
 
     assert await state.get_state() == TrackerCreation.AWAIT_FIELD_TYPE
@@ -48,11 +51,11 @@ async def test_valid_process_tracker_name(state: FSMContext):
 
 
 @pytest.mark.parametrize("text", [None, ""])
-async def test_empty_name_process_tracker_name(state: FSMContext, text):
+async def test_empty_name_process_tracker_name(state: FSMContext, text, lang: Language):
     message = create_message(text)
     await state.set_state(TrackerCreation.AWAIT_TRACKER_NAME)
 
-    await process_tracker_name(message, state)
+    await process_tracker_name(message, state, lang)
     assert await state.get_state() == TrackerCreation.AWAIT_TRACKER_NAME
     message.answer.assert_awaited_with("Имя должно состоять хотя бы из одного символа")
 
@@ -65,34 +68,36 @@ async def test_empty_name_process_tracker_name(state: FSMContext, text):
         FieldTypeCallback(type="string"),
     ],
 )
-async def test_valid_process_field_type_simple_types(state: FSMContext, callback_data):
+async def test_valid_process_field_type_simple_types(
+    state: FSMContext, callback_data, lang: Language
+):
     message = create_message("")
     callback = create_callback(message)
 
-    await process_field_type(callback, callback_data, state)
+    await process_field_type(callback, callback_data, state, lang)
     data = await state.get_data()
 
     assert await state.get_state() == TrackerCreation.AWAIT_FIELD_NAME
     assert data["current_field_type"] == callback_data.type
 
 
-async def test_valid_process_field_type_enum_type(state: FSMContext):
+async def test_valid_process_field_type_enum_type(state: FSMContext, lang: Language):
     message = create_message("")
     callback = create_callback(message)
     callback_data = FieldTypeCallback(type="enum")
 
-    await process_field_type(callback, callback_data, state)
+    await process_field_type(callback, callback_data, state, lang)
     data = await state.get_data()
 
     assert await state.get_state() == TrackerCreation.AWAIT_ENUM_VALUES
     assert data["current_field_type"] == callback_data.type
 
 
-async def test_valid_process_enum_values(state: FSMContext):
+async def test_valid_process_enum_values(state: FSMContext, lang: Language):
     await state.set_state(TrackerCreation.AWAIT_ENUM_VALUES)
     message = create_message("yes/no")
 
-    await process_enum_values(message, state)
+    await process_enum_values(message, state, lang)
     data = await state.get_data()
 
     assert await state.get_state() == TrackerCreation.AWAIT_FIELD_NAME
@@ -100,11 +105,13 @@ async def test_valid_process_enum_values(state: FSMContext):
 
 
 @pytest.mark.parametrize("text", [None, ""])
-async def test_empty_message_process_enum_values(state: FSMContext, text):
+async def test_empty_message_process_enum_values(
+    state: FSMContext, text, lang: Language
+):
     await state.set_state(TrackerCreation.AWAIT_ENUM_VALUES)
     message = create_message(text)
 
-    await process_enum_values(message, state)
+    await process_enum_values(message, state, lang)
 
     assert await state.get_state() == TrackerCreation.AWAIT_ENUM_VALUES
     assert (
@@ -113,11 +120,11 @@ async def test_empty_message_process_enum_values(state: FSMContext, text):
     )
 
 
-async def test_one_option_process_enum_values(state: FSMContext):
+async def test_one_option_process_enum_values(state: FSMContext, lang: Language):
     await state.set_state(TrackerCreation.AWAIT_ENUM_VALUES)
     message = create_message("text")
 
-    await process_enum_values(message, state)
+    await process_enum_values(message, state, lang)
 
     assert await state.get_state() == TrackerCreation.AWAIT_ENUM_VALUES
     assert (
@@ -135,7 +142,9 @@ async def test_one_option_process_enum_values(state: FSMContext):
         ("enum", "yes/no"),
     ],
 )
-async def test_valid_process_field_name(state: FSMContext, field_type, enum_values):
+async def test_valid_process_field_name(
+    state: FSMContext, field_type, enum_values, lang: Language
+):
     message = create_message("name")
     await state.set_state(TrackerCreation.AWAIT_FIELD_NAME)
     await state.update_data(tracker={"name": "name", "fields": {}})
@@ -143,7 +152,7 @@ async def test_valid_process_field_name(state: FSMContext, field_type, enum_valu
         current_field_type=field_type, current_enum_values=enum_values
     )
 
-    await process_field_name(message, state)
+    await process_field_name(message, state, lang)
     data = await state.get_data()
 
     assert await state.get_state() == TrackerCreation.AWAIT_NEXT_ACTION
@@ -153,12 +162,14 @@ async def test_valid_process_field_name(state: FSMContext, field_type, enum_valu
 
 
 @pytest.mark.parametrize("text", [None, ""])
-async def test_empty_message_process_field_name(state: FSMContext, text):
+async def test_empty_message_process_field_name(
+    state: FSMContext, text, lang: Language
+):
     message = create_message(text)
     await state.set_state(TrackerCreation.AWAIT_FIELD_NAME)
     await state.update_data(tracker={"name": "name", "fields": {}})
 
-    await process_field_name(message, state)
+    await process_field_name(message, state, lang)
 
     assert await state.get_state() == TrackerCreation.AWAIT_FIELD_NAME
     assert (
@@ -168,7 +179,7 @@ async def test_empty_message_process_field_name(state: FSMContext, text):
 
 
 async def test_add_existing_field_name_simple_types_process_field_name(
-    state: FSMContext,
+    state: FSMContext, lang: Language
 ):
     message = create_message("existing")
     await state.set_state(TrackerCreation.AWAIT_FIELD_NAME)
@@ -177,14 +188,14 @@ async def test_add_existing_field_name_simple_types_process_field_name(
         current_field_type="int",
     )
 
-    await process_field_name(message, state)
+    await process_field_name(message, state, lang)
 
     assert await state.get_state() == TrackerCreation.AWAIT_FIELD_NAME
-    assert "выберете другое имя для поля" in message.answer.call_args.kwargs["text"]
+    assert "выберите другое имя для поля" in message.answer.call_args.kwargs["text"]
 
 
 async def test_add_existing_field_name_enum_type_process_field_name(
-    state: FSMContext,
+    state: FSMContext, lang: Language
 ):
     message = create_message("existing")
     await state.set_state(TrackerCreation.AWAIT_FIELD_NAME)
@@ -194,25 +205,21 @@ async def test_add_existing_field_name_enum_type_process_field_name(
         current_enum_values="yes/no",
     )
 
-    await process_field_name(message, state)
+    await process_field_name(message, state, lang)
 
     assert await state.get_state() == TrackerCreation.AWAIT_FIELD_NAME
     assert "со значениями yes/no" in message.answer.call_args.kwargs["text"]
 
 
 async def test_valid_process_next_action_add_field(
-    state: FSMContext, user_service, tracker_service
+    state: FSMContext, user_service, tracker_service, lang: Language
 ):
     message = create_message("tracker_name")
     callback = create_callback(message)
-    callback_data = ActionCallback(action="add_field")
     await state.update_data(tracker={"name": "name", "fields": {}})
 
     src_data = await state.get_data()
-    await process_next_action_add_field(
-        callback,
-        state,
-    )
+    await process_next_action_add_field(callback, state, lang)
     data = await state.get_data()
 
     assert data["tracker"] == src_data["tracker"]
@@ -220,11 +227,14 @@ async def test_valid_process_next_action_add_field(
 
 
 async def test_valid_process_next_action_finish(
-    state: FSMContext, mocker: MockerFixture, user_service, tracker_service
+    state: FSMContext,
+    mocker: MockerFixture,
+    user_service,
+    tracker_service,
+    lang: Language,
 ):
     message = create_message("tracker_name")
     callback = create_callback(message)
-    callback_data = ActionCallback(action="finish")
     await state.update_data(
         tracker={"name": "name", "fields": {"field": {"type": "int"}}}
     )
@@ -253,6 +263,7 @@ async def test_valid_process_next_action_finish(
         state,
         tracker_service=tracker_service,
         user_service=user_service,
+        lang=lang,
     )
     data = await state.get_data()
 
@@ -261,11 +272,11 @@ async def test_valid_process_next_action_finish(
     assert len(data) == 0
 
 
-async def test_valid_cancel_creation(state: FSMContext):
+async def test_valid_cancel_creation(state: FSMContext, lang: Language):
     message = create_message("message")
     callback = create_callback(message)
 
-    await cancel_creation(callback, state)
+    await cancel_creation(callback, state, lang)
     data = await state.get_data()
 
     assert len(data) == 0

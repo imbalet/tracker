@@ -20,6 +20,7 @@ from src.presentation.constants import (
     ST_DT_SELECTED_FIELDS,
     ST_TRACKER_ID,
 )
+from src.presentation.constants.text import Language, MsgKey
 from src.presentation.states import DataState
 from src.presentation.utils import (
     CallbackQueryWithMessage,
@@ -27,6 +28,7 @@ from src.presentation.utils import (
     build_tracker_data_action_keyboard,
     build_tracker_fields_keyboard,
     convert_date,
+    t,
     update_main_message,
 )
 from src.services.database.data_service import DataService
@@ -40,15 +42,15 @@ router = Router(name=__name__)
 @router.callback_query(TrackerActionsCallback.filter(F.action == "get_options"))
 @router.callback_query(DataState.AWAIT_PERIOD_TYPE, BackCallback.filter())
 async def tracker_actions_options(
-    callback: CallbackQueryWithMessage, state: FSMContext
+    callback: CallbackQueryWithMessage, state: FSMContext, lang: Language
 ):
     await state.set_state(DataState.AWAIT_ACTION)
     await update_main_message(
         state=state,
         message=callback.message,
-        text="Выберете действие",
+        text=t(lang, MsgKey.DT_SELECT_ACTION),
         reply_markup=build_tracker_data_action_keyboard(
-            extra_buttons=[("Назад", BackCallback())]
+            lang, extra_buttons=[(t(lang, MsgKey.BACK), BackCallback())]
         ),
     )
     await callback.answer()
@@ -59,6 +61,7 @@ async def period_type_select(
     callback: CallbackQueryWithMessage,
     callback_data: TrackerDataActionsCallback,
     state: FSMContext,
+    lang: Language,
 ):
     await state.set_state(DataState.AWAIT_PERIOD_TYPE)
     await state.update_data(data={ST_DT_ACTION: callback_data.action})
@@ -66,8 +69,10 @@ async def period_type_select(
     await update_main_message(
         state=state,
         message=callback.message,
-        text="Выберете единицу измерения периода",
-        reply_markup=build_period_keyboard(extra_buttons=[("Назад", BackCallback())]),
+        text=t(lang, MsgKey.DT_SELECT_PERIOD_TYPE),
+        reply_markup=build_period_keyboard(
+            lang, extra_buttons=[(t(lang, MsgKey.BACK), BackCallback())]
+        ),
     )
     await callback.answer()
 
@@ -77,15 +82,16 @@ async def period_select(
     callback: CallbackQueryWithMessage,
     callback_data: PeriodCallback,
     state: FSMContext,
+    lang: Language,
 ):
-    period_word = PERIOD_TYPES[callback_data.period]
+    period_word = t(lang, PERIOD_TYPES[callback_data.period])
     await state.set_state(DataState.AWAIT_PERIOD_VALUE)
     await state.update_data(data={ST_DT_PERIOD_TYPE: callback_data.period})
 
     await update_main_message(
         state=state,
         message=callback.message,
-        text=f"Введите число {period_word}",
+        text=t(lang, MsgKey.DT_PERIOD_ENTER_NUMBER, period_word=period_word),
     )
     await callback.answer()
 
@@ -96,14 +102,15 @@ async def handle_period_value(
     state: FSMContext,
     data_service: DataService,
     tracker_service: TrackerService,
+    lang: Language,
 ):
     if not message.text or not message.text.isdecimal():
-        await message.answer("Ошибочное значение")
+        await message.answer(t(lang, MsgKey.DT_WRONG_VALUE))
         return
     try:
         period_value = int(message.text)
     except (ValueError, TypeError):
-        await message.answer("Ошибочное значение")
+        await message.answer(t(lang, MsgKey.DT_WRONG_VALUE))
         return
 
     await state.update_data(data={ST_DT_PERIOD_VALUE: period_value})
@@ -119,7 +126,7 @@ async def handle_period_value(
                 convert_date(data[ST_DT_PERIOD_TYPE], int(message.text)),
             )
             file = BufferedInputFile(res.getvalue(), filename="data.csv")
-            await message.answer("Вам будет отправлен CSV файл с данными.")
+            await message.answer(t(lang, MsgKey.DT_SENDING_CSV))
             await message.answer_document(document=file)
         case "table":
             await message.answer("TODO")
@@ -136,12 +143,13 @@ async def handle_period_value(
             await update_main_message(
                 state=state,
                 message=message,
-                text="Выберете поля",
+                text=t(lang, MsgKey.DT_SELECT_FIELDS),
                 reply_markup=build_tracker_fields_keyboard(
                     tracker,
+                    lang,
                     extra_buttons=[
-                        ("Готово", ConfirmCallback()),
-                        ("Отмена", CancelCallback()),
+                        (t(lang, MsgKey.CONFIRM), ConfirmCallback()),
+                        (t(lang, MsgKey.CANCEL), CancelCallback()),
                     ],
                 ),
             )
@@ -153,6 +161,7 @@ async def handle_field(
     callback_data: FieldCallback,
     state: FSMContext,
     tracker_service: TrackerService,
+    lang: Language,
 ):
     field_name = callback_data.name
     data = await state.get_data()
@@ -168,14 +177,15 @@ async def handle_field(
     await update_main_message(
         state=state,
         message=callback.message,
-        text=f"Выбранные поля: {fields_text}",
+        text=t(lang, MsgKey.DT_SELECTED_FIELDS, selected_fields=fields_text),
         reply_markup=build_tracker_fields_keyboard(
             tracker,
+            lang,
             marked_fields=set(selected_fields),
             mark="✅",
             extra_buttons=[
-                ("Готово", ConfirmCallback()),
-                ("Отмена", CancelCallback()),
+                (t(lang, MsgKey.CONFIRM), ConfirmCallback()),
+                (t(lang, MsgKey.CANCEL), CancelCallback()),
             ],
         ),
     )
@@ -187,6 +197,7 @@ async def handle_field_confirm(
     state: FSMContext,
     data_service: DataService,
     tracker_service: TrackerService,
+    lang: Language,
 ):
     await state.set_state(None)
     data = await state.get_data()

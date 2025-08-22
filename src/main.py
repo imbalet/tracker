@@ -17,7 +17,7 @@ from src.exceptions_handler import (
     dynamic_json_exceptions_handler,
     service_exceptions_handler,
 )
-from src.presentation.middleware import DBMiddleware
+from src.presentation.middleware import DBMiddleware, LanguageMiddleware
 from src.presentation.routers import (
     create_tracker_router,
     data_router,
@@ -35,6 +35,8 @@ async def main() -> None:
     dp.errors.register(
         service_exceptions_handler, ExceptionTypeFilter(ServiceExceptions)
     )
+    dp.message.middleware(LanguageMiddleware())
+    dp.callback_query.middleware(LanguageMiddleware())
 
     bot = Bot(
         token=config.BOT_TOKEN,

@@ -13,6 +13,19 @@ class MsgKey(str, Enum):
     DATE_HOURS = "date_hours"
     DATE_MINUTES = "date_minutes"
 
+    KBR_ADD_FIELD = "kbr_add_field"
+    KBR_GET_DATA = "kbr_get_data"
+    KBR_GET_CSV = "kbr_get_csv"
+    KBR_PLOT_GRAPH = "kbr_plot_graph"
+    KBR_GET_STATISTICS = "kbr_get_statistics"
+    KBR_GET_TABLE = "kbr_get_table"
+    KBR_DATE_YEARS = "kbr_date_years"
+    KBR_DATE_MONTHS = "kbr_date_months"
+    KBR_DATE_WEEKS = "kbr_date_weeks"
+    KBR_DATE_DAYS = "kbr_date_days"
+    KBR_DATE_HOURS = "kbr_date_hours"
+    KBR_DATE_MINUTES = "kbr_date_minutes"
+
     CANCEL = "cancel"
     BACK = "back"
     CONFIRM = "confirm"
@@ -60,6 +73,18 @@ TRANSLATIONS: dict[Language, dict[MsgKey, str]] = {
         MsgKey.DATE_DAYS: "дней",
         MsgKey.DATE_HOURS: "часов",
         MsgKey.DATE_MINUTES: "минут",
+        MsgKey.KBR_ADD_FIELD: "Добавить поле",
+        MsgKey.KBR_GET_DATA: "Получить данные",
+        MsgKey.KBR_GET_CSV: "Получить CSV файл",
+        MsgKey.KBR_PLOT_GRAPH: "Построить график",
+        MsgKey.KBR_GET_STATISTICS: "Статистика",
+        MsgKey.KBR_GET_TABLE: "Таблица",
+        MsgKey.KBR_DATE_YEARS: "Года",
+        MsgKey.KBR_DATE_MONTHS: "Месяцы",
+        MsgKey.KBR_DATE_WEEKS: "Недели",
+        MsgKey.KBR_DATE_DAYS: "Дни",
+        MsgKey.KBR_DATE_HOURS: "Часы",
+        MsgKey.KBR_DATE_MINUTES: "Минуты",
         MsgKey.CANCEL: "Отмена",
         MsgKey.BACK: "Назад",
         MsgKey.CONFIRM: "Готово",
@@ -101,6 +126,18 @@ TRANSLATIONS: dict[Language, dict[MsgKey, str]] = {
         MsgKey.DATE_DAYS: "days",
         MsgKey.DATE_HOURS: "hours",
         MsgKey.DATE_MINUTES: "minutes",
+        MsgKey.KBR_ADD_FIELD: "Add field",
+        MsgKey.KBR_GET_DATA: "Get data",
+        MsgKey.KBR_GET_CSV: "Get CSV file",
+        MsgKey.KBR_PLOT_GRAPH: "Plot the graph",
+        MsgKey.KBR_GET_STATISTICS: "Get statistics",
+        MsgKey.KBR_GET_TABLE: "Get table",
+        MsgKey.KBR_DATE_YEARS: "years",
+        MsgKey.KBR_DATE_MONTHS: "months",
+        MsgKey.KBR_DATE_WEEKS: "weeks",
+        MsgKey.KBR_DATE_DAYS: "days",
+        MsgKey.KBR_DATE_HOURS: "hours",
+        MsgKey.KBR_DATE_MINUTES: "minutes",
         MsgKey.CANCEL: "Cancel",
         MsgKey.BACK: "Back",
         MsgKey.CONFIRM: "Done",

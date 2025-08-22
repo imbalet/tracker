@@ -16,7 +16,10 @@ from src.presentation.callbacks import (
     TrackerCallback,
     TrackerDataActionsCallback,
 )
+from src.presentation.constants.text import Language, MsgKey
 from src.schemas import TrackerResponse
+
+from .translations import t
 
 __all__ = [
     "build_field_type_keyboard",
@@ -144,6 +147,7 @@ class InlineKeyboardFactory:
 
 
 def build_field_type_keyboard(
+    lang: Language,
     extra_buttons: list[tuple[str, CallbackData]] | None = None,
 ):
     extra_buttons = extra_buttons or []
@@ -155,17 +159,18 @@ def build_field_type_keyboard(
 
 
 def build_action_keyboard(
-    extra_buttons: list[tuple[str, CallbackData]] | None = None,
+    lang: Language, extra_buttons: list[tuple[str, CallbackData]] | None = None
 ):
     extra_buttons = extra_buttons or []
     builder = InlineKeyboardFactory()
     (
         builder.button(
-            text="Добавить поле", callback_data=ActionCallback(action="add_field")
+            text=t(lang, MsgKey.KBR_ADD_FIELD),
+            callback_data=ActionCallback(action="add_field"),
         )
         .row_buttons_tuple(
-            ("Завершить", ActionCallback(action="finish")),
-            ("Отменить", CancelCallback()),
+            (t(lang, MsgKey.CONFIRM), ActionCallback(action="finish")),
+            (t(lang, MsgKey.CANCEL), CancelCallback()),
         )
         .row_buttons_tuple(*extra_buttons)
     )
@@ -174,6 +179,7 @@ def build_action_keyboard(
 
 def build_trackers_keyboard(
     trackers: list[TrackerResponse],
+    lang: Language,
     extra_buttons: list[tuple[str, CallbackData]] | None = None,
 ):
     extra_buttons = extra_buttons or []
@@ -186,6 +192,7 @@ def build_trackers_keyboard(
 
 def build_tracker_fields_keyboard(
     tracker: TrackerResponse,
+    lang: Language,
     exclude_fields: set[str] | None = None,
     marked_fields: set[str] | None = None,
     mark: str = "",
@@ -208,13 +215,13 @@ def build_tracker_fields_keyboard(
 
 
 def build_tracker_action_keyboard(
-    extra_buttons: list[tuple[str, CallbackData]] | None = None,
+    lang: Language, extra_buttons: list[tuple[str, CallbackData]] | None = None
 ):
     extra_buttons = extra_buttons or []
     builder = InlineKeyboardFactory()
     (
         builder.button(
-            text="Получить данные",
+            text=t(lang, MsgKey.KBR_GET_DATA),
             callback_data=TrackerActionsCallback(action="get_options"),
         ).row_buttons_tuple(*extra_buttons)
     )
@@ -222,25 +229,25 @@ def build_tracker_action_keyboard(
 
 
 def build_tracker_data_action_keyboard(
-    extra_buttons: list[tuple[str, CallbackData]] | None = None,
+    lang: Language, extra_buttons: list[tuple[str, CallbackData]] | None = None
 ):
     extra_buttons = extra_buttons or []
     builder = InlineKeyboardFactory()
     (
         builder.button(
-            text="Получить CSV файл",
+            text=t(lang, MsgKey.KBR_GET_CSV),
             callback_data=TrackerDataActionsCallback(action="csv"),
         )
         .button(
-            text="Построить график",
+            text=t(lang, MsgKey.KBR_PLOT_GRAPH),
             callback_data=TrackerDataActionsCallback(action="graph"),
         )
         .button(
-            text="Статистика",
+            text=t(lang, MsgKey.KBR_GET_STATISTICS),
             callback_data=TrackerDataActionsCallback(action="statistics"),
         )
         .button(
-            text="Таблица",
+            text=t(lang, MsgKey.KBR_GET_TABLE),
             callback_data=TrackerDataActionsCallback(action="table"),
         )
         .row_buttons_tuple(*extra_buttons)
@@ -249,17 +256,35 @@ def build_tracker_data_action_keyboard(
 
 
 def build_period_keyboard(
-    extra_buttons: list[tuple[str, CallbackData]] | None = None,
+    lang: Language, extra_buttons: list[tuple[str, CallbackData]] | None = None
 ):
     extra_buttons = extra_buttons or []
     builder = InlineKeyboardFactory()
     (
-        builder.button(text="Года", callback_data=PeriodCallback(period="years"))
-        .button(text="Месяцы", callback_data=PeriodCallback(period="months"))
-        .button(text="Недели", callback_data=PeriodCallback(period="weeks"))
-        .button(text="Дни", callback_data=PeriodCallback(period="days"))
-        .button(text="Часы", callback_data=PeriodCallback(period="hours"))
-        .button(text="Минуты", callback_data=PeriodCallback(period="minutes"))
+        builder.button(
+            text=t(lang, MsgKey.KBR_DATE_YEARS),
+            callback_data=PeriodCallback(period="years"),
+        )
+        .button(
+            text=t(lang, MsgKey.KBR_DATE_MONTHS),
+            callback_data=PeriodCallback(period="months"),
+        )
+        .button(
+            text=t(lang, MsgKey.KBR_DATE_WEEKS),
+            callback_data=PeriodCallback(period="weeks"),
+        )
+        .button(
+            text=t(lang, MsgKey.KBR_DATE_DAYS),
+            callback_data=PeriodCallback(period="days"),
+        )
+        .button(
+            text=t(lang, MsgKey.KBR_DATE_HOURS),
+            callback_data=PeriodCallback(period="hours"),
+        )
+        .button(
+            text=t(lang, MsgKey.KBR_DATE_MINUTES),
+            callback_data=PeriodCallback(period="minutes"),
+        )
         .row_buttons_tuple(*extra_buttons)
     )
     return builder.as_markup()

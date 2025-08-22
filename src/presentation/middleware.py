@@ -4,6 +4,7 @@ from aiogram import BaseMiddleware, Bot
 from aiogram.types import (
     CallbackQuery,
     InaccessibleMessage,
+    Message,
     TelegramObject,
 )
 
@@ -25,6 +26,21 @@ class DBMiddleware(BaseMiddleware):
         data["data_service"] = DataService(session_factory=self.sessionmaker)
         data["tracker_service"] = TrackerService(session_factory=self.sessionmaker)
         data["user_service"] = UserService(session_factory=self.sessionmaker)
+        return await handler(event, data)
+
+
+class LanguageMiddleware(BaseMiddleware):
+    def __init__(self, default_lang: str = "ru"):
+        self.default_lang = default_lang
+
+    async def __call__(  # type: ignore
+        self,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: Message | CallbackQuery,
+        data: Dict[str, Any],
+    ) -> Any:
+        lang = getattr(event.from_user, "language_code", None) or self.default_lang
+        data["lang"] = "ru" if lang.startswith("ru") else "en"
         return await handler(event, data)
 
 

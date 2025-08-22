@@ -9,6 +9,7 @@ from src.presentation.constants import (
     ST_CR_CUR_FIELD_TYPE,
     ST_CR_TRACKER,
 )
+from src.presentation.constants.text import Language, MsgKey
 from src.presentation.middleware import CallbackMessageMiddleware
 from src.presentation.states import TrackerCreation
 from src.presentation.utils import (
@@ -17,6 +18,7 @@ from src.presentation.utils import (
     build_field_type_keyboard,
     get_tracker_description,
     get_tracker_description_from_dto,
+    t,
     update_main_message,
 )
 from src.schemas import TrackerStructureCreate
@@ -28,16 +30,18 @@ router.callback_query.middleware(CallbackMessageMiddleware())
 
 
 @router.message(Command("add_tracker"))
-async def start_tracker_creation(message: Message, state: FSMContext) -> None:
+async def start_tracker_creation(
+    message: Message, state: FSMContext, lang: Language
+) -> None:
     await state.clear()
     await state.set_state(TrackerCreation.AWAIT_TRACKER_NAME)
-    await message.answer("Введите название трекера:")
+    await message.answer(t(lang, MsgKey.CR_ENTER_NAME))
 
 
 @router.message(TrackerCreation.AWAIT_TRACKER_NAME)
-async def process_tracker_name(message: Message, state: FSMContext):
+async def process_tracker_name(message: Message, state: FSMContext, lang: Language):
     if not message.text:
-        await message.answer("Имя должно состоять хотя бы из одного символа")
+        await message.answer(t(lang, MsgKey.CR_AT_LEAST_ONE_SYM))
         return
 
     tracker_dict = {"name": message.text, "fields": {}}
@@ -47,9 +51,9 @@ async def process_tracker_name(message: Message, state: FSMContext):
     await update_main_message(
         state=state,
         message=message,
-        text=get_tracker_description(tracker_dict, "Создание трекера"),  # type: ignore
+        text=get_tracker_description(tracker_dict, t(lang, MsgKey.CR_CREATING)),  # type: ignore
         reply_markup=build_field_type_keyboard(
-            extra_buttons=[("Отмена", CancelCallback())]
+            lang, extra_buttons=[(t(lang, MsgKey.CANCEL), CancelCallback())]
         ),
         create_new=True,
     )
@@ -60,17 +64,16 @@ async def process_field_type(
     callback: CallbackQueryWithMessage,
     callback_data: FieldTypeCallback,
     state: FSMContext,
+    lang: Language,
 ):
     await state.update_data(data={ST_CR_CUR_FIELD_TYPE: callback_data.type})
 
     if callback_data.type == "enum":
         next_state = TrackerCreation.AWAIT_ENUM_VALUES
-        message_text = f"Выбран тип: {callback_data.type.upper()}\nВведите значения поля через слеш `/`:"
+        message_text = t(lang, MsgKey.CR_SELECTED_ENUM, type=callback_data.type.upper())
     else:
         next_state = TrackerCreation.AWAIT_FIELD_NAME
-        message_text = (
-            f"Выбран тип: {callback_data.type.upper()}\nВведите название поля:"
-        )
+        message_text = t(lang, MsgKey.CR_SELECTED, type=callback_data.type.upper())
     await state.set_state(next_state)
 
     await update_main_message(
@@ -82,12 +85,12 @@ async def process_field_type(
 
 
 @router.message(TrackerCreation.AWAIT_ENUM_VALUES)
-async def process_enum_values(message: Message, state: FSMContext):
+async def process_enum_values(message: Message, state: FSMContext, lang: Language):
     if not message.text:
         await update_main_message(
             state=state,
             message=message,
-            text="Сообщение должно включать значения поля enum",
+            text=t(lang, MsgKey.CR_EMPTY_ENUM),
             create_new=True,
         )
         return
@@ -97,7 +100,7 @@ async def process_enum_values(message: Message, state: FSMContext):
         await update_main_message(
             state=state,
             message=message,
-            text=f"Значений enum должно быть более 1, получено {len(options)}",
+            text=t(lang, MsgKey.CR_ENUM_WRONG_COUNT, count=len(options)),
             create_new=True,
         )
         return
@@ -105,9 +108,7 @@ async def process_enum_values(message: Message, state: FSMContext):
     await state.update_data(data={ST_CR_CUR_ENUM_VALUES: message.text})
     await state.set_state(TrackerCreation.AWAIT_FIELD_NAME)
 
-    text = (
-        f"Выбраны следующие значения enum: {", ".join(options)}\nВведите название поля:"
-    )
+    text = t(lang, MsgKey.CR_SELECTED_ENUM_VALUES, enum_values=", ".join(options))
     await update_main_message(
         state=state,
         message=message,
@@ -117,12 +118,12 @@ async def process_enum_values(message: Message, state: FSMContext):
 
 
 @router.message(TrackerCreation.AWAIT_FIELD_NAME)
-async def process_field_name(message: Message, state: FSMContext):
+async def process_field_name(message: Message, state: FSMContext, lang: Language):
     if not message.text:
         await update_main_message(
             state=state,
             message=message,
-            text="Сообщение должно включать название поля",
+            text=t(lang, MsgKey.CR_NO_FIELD_NAME),
             create_new=True,
         )
         return
@@ -137,11 +138,19 @@ async def process_field_name(message: Message, state: FSMContext):
             state=state,
             message=message,
             text=(
-                f'Имя "{message.text}" уже существует, выберете другое имя для поля {data[ST_CR_CUR_FIELD_TYPE]}'
-                + (
-                    f" со значениями {data[ST_CR_CUR_ENUM_VALUES]}"
-                    if data[ST_CR_CUR_FIELD_TYPE] == "enum"
-                    else ""
+                t(
+                    lang,
+                    MsgKey.CR_FIELD_NAME_EXISTS_ENUM,
+                    name=message.text,
+                    field_name=data[ST_CR_CUR_FIELD_TYPE],
+                    values=data[ST_CR_CUR_ENUM_VALUES],
+                )
+                if data[ST_CR_CUR_FIELD_TYPE] == "enum"
+                else t(
+                    lang,
+                    MsgKey.CR_FIELD_NAME_EXISTS,
+                    name=message.text,
+                    field_name=data[ST_CR_CUR_FIELD_TYPE],
                 )
             ),
             create_new=True,
@@ -165,8 +174,8 @@ async def process_field_name(message: Message, state: FSMContext):
     await update_main_message(
         state=state,
         message=message,
-        text=get_tracker_description(tracker, "Создание трекера"),
-        reply_markup=build_action_keyboard(),
+        text=get_tracker_description(tracker, t(lang, MsgKey.CR_CREATING)),
+        reply_markup=build_action_keyboard(lang),
         create_new=True,
     )
 
@@ -175,7 +184,7 @@ async def process_field_name(message: Message, state: FSMContext):
     TrackerCreation.AWAIT_NEXT_ACTION, ActionCallback.filter(F.action == "add_field")
 )
 async def process_next_action_add_field(
-    callback: CallbackQueryWithMessage, state: FSMContext
+    callback: CallbackQueryWithMessage, state: FSMContext, lang: Language
 ):
     data = await state.get_data()
     tracker = data[ST_CR_TRACKER]
@@ -183,9 +192,9 @@ async def process_next_action_add_field(
     await update_main_message(
         state=state,
         message=callback.message,
-        text=get_tracker_description(tracker, "Создание трекера"),
+        text=get_tracker_description(tracker, t(lang, MsgKey.CR_CREATING)),
         reply_markup=build_field_type_keyboard(
-            extra_buttons=[("Отмена", CancelCallback())]
+            lang, extra_buttons=[(t(lang, MsgKey.CANCEL), CancelCallback())]
         ),
     )
 
@@ -198,13 +207,12 @@ async def process_next_action_finish(
     state: FSMContext,
     tracker_service: TrackerService,
     user_service: UserService,
+    lang: Language,
 ):
     data = await state.get_data()
     tracker = data[ST_CR_TRACKER]
     if len(tracker["fields"]) == 0:
-        await callback.message.answer(
-            "Для сохранения в трекере должно быть хотя бы одно поле"
-        )
+        await callback.message.answer(t(lang, MsgKey.CR_AT_LEAST_ONE_FIELD_REQUIRED))
         return
 
     uc = CreateTrackerStructureUseCase(tracker_service, user_service)
@@ -217,7 +225,9 @@ async def process_next_action_finish(
     await update_main_message(
         state=state,
         message=callback.message,
-        text=f"Трекер создан!\n\n{get_tracker_description_from_dto(res, "Создание трекера")}",
+        text=t(
+            lang, MsgKey.CR_CREATED, description=get_tracker_description_from_dto(res)
+        ),
     )
     await state.clear()
     await callback.answer()
@@ -227,11 +237,13 @@ async def process_next_action_finish(
     or_f(TrackerCreation.AWAIT_FIELD_TYPE, TrackerCreation.AWAIT_NEXT_ACTION),
     CancelCallback.filter(),
 )
-async def cancel_creation(callback: CallbackQueryWithMessage, state: FSMContext):
+async def cancel_creation(
+    callback: CallbackQueryWithMessage, state: FSMContext, lang: Language
+):
     await update_main_message(
         state=state,
         message=callback.message,
-        text="Создание трекера отменено",
+        text=t(lang, MsgKey.CR_CANCELED),
     )
     await state.clear()
     await callback.answer()
