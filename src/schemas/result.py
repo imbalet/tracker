@@ -6,6 +6,11 @@ from pydantic import BaseModel, model_validator
 
 class DataResult(BaseModel):
     date: datetime
+    value: dict
+
+
+class FieldResult(BaseModel):
+    date: datetime
     value: Any
 
 

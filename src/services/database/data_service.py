@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.models import TrackerDataOrm
 from src.schemas import AggregatedNumericData, DataResult, StaticticsTrackerData
+from src.schemas.result import FieldResult
 
 AggregateType = Literal["min", "max", "avg", "sum"]
 
@@ -17,7 +18,7 @@ class DataService:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self.session_factory = session_factory
 
-    async def get_field_by_name(self, tracker_id: UUID, name: str) -> list[DataResult]:
+    async def get_field_by_name(self, tracker_id: UUID, name: str) -> list[FieldResult]:
         async with self.session_factory() as session:
             stmt = (
                 select(
@@ -32,7 +33,7 @@ class DataService:
             )
             res = await session.execute(stmt)
             return [
-                DataResult(
+                FieldResult(
                     date=row.date,
                     value=row.value,
                 )
@@ -171,10 +172,14 @@ class DataService:
             conditions = [TrackerDataOrm.tracker_id == tracker_id]
             if from_date is not None:
                 conditions.append(TrackerDataOrm.created_at >= from_date)
-            query = select(
-                TrackerDataOrm.created_at.label("date"),
-                data_expr.label("data"),
-            ).where(*conditions)
+            query = (
+                select(
+                    TrackerDataOrm.created_at.label("date"),
+                    data_expr.label("data"),
+                )
+                .where(*conditions)
+                .order_by(TrackerDataOrm.created_at)
+            )
 
             res = await session.execute(query)
             rows = res.all()
@@ -218,8 +223,17 @@ class DataService:
                 conditions.append(TrackerDataOrm.created_at >= from_date)
 
             stmt = select(*selects).where(*conditions)
+
+            count_stmt = select(func.count()).where(*conditions)
+            count_res = await session.execute(count_stmt)
+            total_count = count_res.scalar_one()
+            if total_count == 0:
+                return []
+
             res = await session.execute(stmt)
-            row = res.one_or_none()
+            row = res.one()
+            if not row:
+                return []
             result = []
             if numeric_fields:
                 result.extend(

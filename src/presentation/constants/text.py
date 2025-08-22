@@ -52,6 +52,7 @@ class MsgKey(str, Enum):
     DT_PERIOD_ENTER_NUMBER = "dt_enter_number"
     DT_WRONG_VALUE = "dt_wrong_value"
     DT_SENDING_CSV = "dt_sending_csv"
+    DT_NO_RECORDS = "dt_no_records"
     DT_SELECT_FIELDS = "dt_select_fields"
     DT_SELECTED_FIELDS = "dt_selected_fields"
 
@@ -108,6 +109,7 @@ TRANSLATIONS: dict[Language, dict[MsgKey, str]] = {
         MsgKey.DT_PERIOD_ENTER_NUMBER: "Введите число {period_word}",
         MsgKey.DT_WRONG_VALUE: "Ошибочное значение",
         MsgKey.DT_SENDING_CSV: "Вам будет отправлен CSV файл с данными",
+        MsgKey.DT_NO_RECORDS: "В трекере нет записей",
         MsgKey.DT_SELECT_FIELDS: "Выберите поля",
         MsgKey.DT_SELECTED_FIELDS: "Выбранные поля: {selected_fields}",
         MsgKey.TR_NO_TRACKERS: "У вас пока нет трекеров",
@@ -161,6 +163,7 @@ TRANSLATIONS: dict[Language, dict[MsgKey, str]] = {
         MsgKey.DT_PERIOD_ENTER_NUMBER: "Enter the number of {period_word}",
         MsgKey.DT_WRONG_VALUE: "Invalid value",
         MsgKey.DT_SENDING_CSV: "You will be sent a CSV file with the data",
+        MsgKey.DT_NO_RECORDS: "No records in the tracker",
         MsgKey.DT_SELECT_FIELDS: "Select fields",
         MsgKey.DT_SELECTED_FIELDS: "Selected fields: {selected_fields}",
         MsgKey.TR_NO_TRACKERS: "You don’t have any trackers yet",

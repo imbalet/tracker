@@ -125,6 +125,9 @@ async def handle_period_value(
                 data[ST_TRACKER_ID],
                 convert_date(data[ST_DT_PERIOD_TYPE], int(message.text)),
             )
+            if not res:
+                await message.answer(t(lang, MsgKey.DT_NO_RECORDS))
+                return
             file = BufferedInputFile(res.getvalue(), filename="data.csv")
             await message.answer(t(lang, MsgKey.DT_SENDING_CSV))
             await message.answer_document(document=file)
@@ -189,6 +192,7 @@ async def handle_field(
             ],
         ),
     )
+    await callback.answer()
 
 
 @router.callback_query(DataState.AWAIT_FIELDS_SELECTION, ConfirmCallback.filter())
@@ -221,6 +225,10 @@ async def handle_field_confirm(
         tracker_id=data[ST_TRACKER_ID],
         from_date=convert_date(data[ST_DT_PERIOD_TYPE], data[ST_DT_PERIOD_VALUE]),
     )
+    if not res:
+        await callback.message.answer(t(lang, MsgKey.DT_NO_RECORDS))
+        await callback.answer()
+        return
     await update_main_message(
         state=state,
         message=callback.message,
@@ -233,3 +241,4 @@ async def handle_field_confirm(
             ]
         ),
     )
+    await callback.answer()

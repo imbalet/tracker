@@ -16,7 +16,7 @@ class GetCSVUseCase:
         tracker_id: UUID,
         from_date: datetime | None = None,
         exclude_fields: list[str] | None = None,
-    ) -> BytesIO:
+    ) -> BytesIO | None:
         """Returns a BytesIO object containing a CSV file.
 
         Args:
@@ -33,12 +33,16 @@ class GetCSVUseCase:
             from_date=from_date,
             exclude_fields=exclude_fields,
         )
+        if len(res) == 0:
+            return None
 
         csv_buffer = BytesIO()
         text_buffer = TextIOWrapper(csv_buffer, encoding="utf-8", newline="")
         writer = csv.writer(text_buffer)
-        writer.writerow(res[0].value.keys())
-        writer.writerows([i.value.values() for i in res])
+        writer.writerow(["date", *res[0].value.keys()])
+        for i in res:
+            row = [i.date, *i.value.values()]
+            writer.writerow(row)
         text_buffer.flush()
         csv_buffer.seek(0)
         text_buffer.detach()

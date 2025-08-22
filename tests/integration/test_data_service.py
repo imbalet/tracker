@@ -56,7 +56,7 @@ async def test_valid_get_field(
     await insert_data(data, tracker_service, sample_tracker_created)
 
     res = await data_service.get_field_by_name(
-        tracker_id=sample_tracker_created.id, name="data1"
+        tracker_id=sample_tracker_created.id, name="int_name"
     )
     assert len(res) == len(data)
 

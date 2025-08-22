@@ -8,4 +8,9 @@ from .tracker import (
     TrackerStructureCreate,
     TrackerStructureResponse,
 )
-from .result import AggregatedNumericData, DataResult, StaticticsTrackerData
+from .result import (
+    AggregatedNumericData,
+    DataResult,
+    StaticticsTrackerData,
+    FieldResult,
+)
