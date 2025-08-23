@@ -14,11 +14,11 @@ from src.presentation.middleware import CallbackMessageMiddleware
 from src.presentation.states import TrackerCreation
 from src.presentation.utils import (
     CallbackQueryWithMessage,
+    TFunction,
     build_action_keyboard,
     build_field_type_keyboard,
     get_tracker_description,
     get_tracker_description_from_dto,
-    t,
     update_main_message,
 )
 from src.schemas import TrackerStructureCreate
@@ -31,17 +31,19 @@ router.callback_query.middleware(CallbackMessageMiddleware())
 
 @router.message(Command("add_tracker"))
 async def start_tracker_creation(
-    message: Message, state: FSMContext, lang: Language
+    message: Message, state: FSMContext, t: TFunction, lang: Language
 ) -> None:
     await state.clear()
     await state.set_state(TrackerCreation.AWAIT_TRACKER_NAME)
-    await message.answer(t(lang, MsgKey.CR_ENTER_NAME))
+    await message.answer(t(MsgKey.CR_ENTER_NAME))
 
 
 @router.message(TrackerCreation.AWAIT_TRACKER_NAME)
-async def process_tracker_name(message: Message, state: FSMContext, lang: Language):
+async def process_tracker_name(
+    message: Message, state: FSMContext, t: TFunction, lang: Language
+):
     if not message.text:
-        await message.answer(t(lang, MsgKey.CR_AT_LEAST_ONE_SYM))
+        await message.answer(t(MsgKey.CR_AT_LEAST_ONE_SYM))
         return
 
     tracker_dict = {"name": message.text, "fields": {}}
@@ -51,9 +53,9 @@ async def process_tracker_name(message: Message, state: FSMContext, lang: Langua
     await update_main_message(
         state=state,
         message=message,
-        text=get_tracker_description(tracker_dict, t(lang, MsgKey.CR_CREATING)),  # type: ignore
+        text=get_tracker_description(tracker_dict, t(MsgKey.CR_CREATING)),  # type: ignore
         reply_markup=build_field_type_keyboard(
-            lang, extra_buttons=[(t(lang, MsgKey.CANCEL), CancelCallback())]
+            lang, extra_buttons=[(t(MsgKey.CANCEL), CancelCallback())]
         ),
         create_new=True,
     )
@@ -64,16 +66,17 @@ async def process_field_type(
     callback: CallbackQueryWithMessage,
     callback_data: FieldTypeCallback,
     state: FSMContext,
+    t: TFunction,
     lang: Language,
 ):
     await state.update_data(data={ST_CR_CUR_FIELD_TYPE: callback_data.type})
 
     if callback_data.type == "enum":
         next_state = TrackerCreation.AWAIT_ENUM_VALUES
-        message_text = t(lang, MsgKey.CR_SELECTED_ENUM, type=callback_data.type.upper())
+        message_text = t(MsgKey.CR_SELECTED_ENUM, type=callback_data.type.upper())
     else:
         next_state = TrackerCreation.AWAIT_FIELD_NAME
-        message_text = t(lang, MsgKey.CR_SELECTED, type=callback_data.type.upper())
+        message_text = t(MsgKey.CR_SELECTED, type=callback_data.type.upper())
     await state.set_state(next_state)
 
     await update_main_message(
@@ -85,12 +88,14 @@ async def process_field_type(
 
 
 @router.message(TrackerCreation.AWAIT_ENUM_VALUES)
-async def process_enum_values(message: Message, state: FSMContext, lang: Language):
+async def process_enum_values(
+    message: Message, state: FSMContext, t: TFunction, lang: Language
+):
     if not message.text:
         await update_main_message(
             state=state,
             message=message,
-            text=t(lang, MsgKey.CR_EMPTY_ENUM),
+            text=t(MsgKey.CR_EMPTY_ENUM),
             create_new=True,
         )
         return
@@ -100,7 +105,7 @@ async def process_enum_values(message: Message, state: FSMContext, lang: Languag
         await update_main_message(
             state=state,
             message=message,
-            text=t(lang, MsgKey.CR_ENUM_WRONG_COUNT, count=len(options)),
+            text=t(MsgKey.CR_ENUM_WRONG_COUNT, count=len(options)),
             create_new=True,
         )
         return
@@ -108,7 +113,7 @@ async def process_enum_values(message: Message, state: FSMContext, lang: Languag
     await state.update_data(data={ST_CR_CUR_ENUM_VALUES: message.text})
     await state.set_state(TrackerCreation.AWAIT_FIELD_NAME)
 
-    text = t(lang, MsgKey.CR_SELECTED_ENUM_VALUES, enum_values=", ".join(options))
+    text = t(MsgKey.CR_SELECTED_ENUM_VALUES, enum_values=", ".join(options))
     await update_main_message(
         state=state,
         message=message,
@@ -118,12 +123,14 @@ async def process_enum_values(message: Message, state: FSMContext, lang: Languag
 
 
 @router.message(TrackerCreation.AWAIT_FIELD_NAME)
-async def process_field_name(message: Message, state: FSMContext, lang: Language):
+async def process_field_name(
+    message: Message, state: FSMContext, t: TFunction, lang: Language
+):
     if not message.text:
         await update_main_message(
             state=state,
             message=message,
-            text=t(lang, MsgKey.CR_NO_FIELD_NAME),
+            text=t(MsgKey.CR_NO_FIELD_NAME),
             create_new=True,
         )
         return
@@ -139,7 +146,6 @@ async def process_field_name(message: Message, state: FSMContext, lang: Language
             message=message,
             text=(
                 t(
-                    lang,
                     MsgKey.CR_FIELD_NAME_EXISTS_ENUM,
                     name=message.text,
                     field_name=data[ST_CR_CUR_FIELD_TYPE],
@@ -147,7 +153,6 @@ async def process_field_name(message: Message, state: FSMContext, lang: Language
                 )
                 if data[ST_CR_CUR_FIELD_TYPE] == "enum"
                 else t(
-                    lang,
                     MsgKey.CR_FIELD_NAME_EXISTS,
                     name=message.text,
                     field_name=data[ST_CR_CUR_FIELD_TYPE],
@@ -174,7 +179,7 @@ async def process_field_name(message: Message, state: FSMContext, lang: Language
     await update_main_message(
         state=state,
         message=message,
-        text=get_tracker_description(tracker, t(lang, MsgKey.CR_CREATING)),
+        text=get_tracker_description(tracker, t(MsgKey.CR_CREATING)),
         reply_markup=build_action_keyboard(lang),
         create_new=True,
     )
@@ -184,7 +189,7 @@ async def process_field_name(message: Message, state: FSMContext, lang: Language
     TrackerCreation.AWAIT_NEXT_ACTION, ActionCallback.filter(F.action == "add_field")
 )
 async def process_next_action_add_field(
-    callback: CallbackQueryWithMessage, state: FSMContext, lang: Language
+    callback: CallbackQueryWithMessage, state: FSMContext, t: TFunction, lang: Language
 ):
     data = await state.get_data()
     tracker = data[ST_CR_TRACKER]
@@ -192,9 +197,9 @@ async def process_next_action_add_field(
     await update_main_message(
         state=state,
         message=callback.message,
-        text=get_tracker_description(tracker, t(lang, MsgKey.CR_CREATING)),
+        text=get_tracker_description(tracker, t(MsgKey.CR_CREATING)),
         reply_markup=build_field_type_keyboard(
-            lang, extra_buttons=[(t(lang, MsgKey.CANCEL), CancelCallback())]
+            lang, extra_buttons=[(t(MsgKey.CANCEL), CancelCallback())]
         ),
     )
 
@@ -207,12 +212,13 @@ async def process_next_action_finish(
     state: FSMContext,
     tracker_service: TrackerService,
     user_service: UserService,
+    t: TFunction,
     lang: Language,
 ):
     data = await state.get_data()
     tracker = data[ST_CR_TRACKER]
     if len(tracker["fields"]) == 0:
-        await callback.message.answer(t(lang, MsgKey.CR_AT_LEAST_ONE_FIELD_REQUIRED))
+        await callback.message.answer(t(MsgKey.CR_AT_LEAST_ONE_FIELD_REQUIRED))
         return
 
     uc = CreateTrackerStructureUseCase(tracker_service, user_service)
@@ -225,9 +231,7 @@ async def process_next_action_finish(
     await update_main_message(
         state=state,
         message=callback.message,
-        text=t(
-            lang, MsgKey.CR_CREATED, description=get_tracker_description_from_dto(res)
-        ),
+        text=t(MsgKey.CR_CREATED, description=get_tracker_description_from_dto(res)),
     )
     await state.clear()
     await callback.answer()
@@ -238,12 +242,12 @@ async def process_next_action_finish(
     CancelCallback.filter(),
 )
 async def cancel_creation(
-    callback: CallbackQueryWithMessage, state: FSMContext, lang: Language
+    callback: CallbackQueryWithMessage, state: FSMContext, t: TFunction, lang: Language
 ):
     await update_main_message(
         state=state,
         message=callback.message,
-        text=t(lang, MsgKey.CR_CANCELED),
+        text=t(MsgKey.CR_CANCELED),
     )
     await state.clear()
     await callback.answer()

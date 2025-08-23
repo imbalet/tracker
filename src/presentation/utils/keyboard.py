@@ -20,7 +20,7 @@ from src.presentation.callbacks import (
 from src.presentation.constants.text import Language, MsgKey
 from src.schemas import TrackerResponse
 
-from .translations import t
+from .translations import _t
 
 __all__ = [
     "build_field_type_keyboard",
@@ -166,12 +166,12 @@ def build_action_keyboard(
     builder = InlineKeyboardFactory()
     (
         builder.button(
-            text=t(lang, MsgKey.KBR_ADD_FIELD),
+            text=_t(lang, MsgKey.KBR_ADD_FIELD),
             callback_data=ActionCallback(action="add_field"),
         )
         .row_buttons_tuple(
-            (t(lang, MsgKey.CONFIRM), ActionCallback(action="finish")),
-            (t(lang, MsgKey.CANCEL), CancelCallback()),
+            (_t(lang, MsgKey.CONFIRM), ActionCallback(action="finish")),
+            (_t(lang, MsgKey.CANCEL), CancelCallback()),
         )
         .row_buttons_tuple(*extra_buttons)
     )
@@ -222,7 +222,7 @@ def build_tracker_action_keyboard(
     builder = InlineKeyboardFactory()
     (
         builder.button(
-            text=t(lang, MsgKey.KBR_GET_DATA),
+            text=_t(lang, MsgKey.KBR_GET_DATA),
             callback_data=TrackerActionsCallback(action="get_options"),
         ).row_buttons_tuple(*extra_buttons)
     )
@@ -236,19 +236,19 @@ def build_tracker_data_action_keyboard(
     builder = InlineKeyboardFactory()
     (
         builder.button(
-            text=t(lang, MsgKey.KBR_GET_CSV),
+            text=_t(lang, MsgKey.KBR_GET_CSV),
             callback_data=TrackerDataActionsCallback(action="csv"),
         )
         .button(
-            text=t(lang, MsgKey.KBR_PLOT_GRAPH),
+            text=_t(lang, MsgKey.KBR_PLOT_GRAPH),
             callback_data=TrackerDataActionsCallback(action="graph"),
         )
         .button(
-            text=t(lang, MsgKey.KBR_GET_STATISTICS),
+            text=_t(lang, MsgKey.KBR_GET_STATISTICS),
             callback_data=TrackerDataActionsCallback(action="statistics"),
         )
         .button(
-            text=t(lang, MsgKey.KBR_GET_TABLE),
+            text=_t(lang, MsgKey.KBR_GET_TABLE),
             callback_data=TrackerDataActionsCallback(action="table"),
         )
         .row_buttons_tuple(*extra_buttons)
@@ -263,27 +263,27 @@ def build_period_keyboard(
     builder = InlineKeyboardFactory()
     (
         builder.button(
-            text=t(lang, MsgKey.KBR_DATE_YEARS),
+            text=_t(lang, MsgKey.KBR_DATE_YEARS),
             callback_data=PeriodCallback(period="years"),
         )
         .button(
-            text=t(lang, MsgKey.KBR_DATE_MONTHS),
+            text=_t(lang, MsgKey.KBR_DATE_MONTHS),
             callback_data=PeriodCallback(period="months"),
         )
         .button(
-            text=t(lang, MsgKey.KBR_DATE_WEEKS),
+            text=_t(lang, MsgKey.KBR_DATE_WEEKS),
             callback_data=PeriodCallback(period="weeks"),
         )
         .button(
-            text=t(lang, MsgKey.KBR_DATE_DAYS),
+            text=_t(lang, MsgKey.KBR_DATE_DAYS),
             callback_data=PeriodCallback(period="days"),
         )
         .button(
-            text=t(lang, MsgKey.KBR_DATE_HOURS),
+            text=_t(lang, MsgKey.KBR_DATE_HOURS),
             callback_data=PeriodCallback(period="hours"),
         )
         .button(
-            text=t(lang, MsgKey.KBR_DATE_MINUTES),
+            text=_t(lang, MsgKey.KBR_DATE_MINUTES),
             callback_data=PeriodCallback(period="minutes"),
         )
         .row_buttons_tuple(*extra_buttons)

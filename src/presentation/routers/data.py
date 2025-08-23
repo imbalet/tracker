@@ -24,11 +24,11 @@ from src.presentation.constants.text import Language, MsgKey
 from src.presentation.states import DataState
 from src.presentation.utils import (
     CallbackQueryWithMessage,
+    TFunction,
     build_period_keyboard,
     build_tracker_data_action_keyboard,
     build_tracker_fields_keyboard,
     convert_date,
-    t,
     update_main_message,
 )
 from src.services.database.data_service import DataService
@@ -42,15 +42,15 @@ router = Router(name=__name__)
 @router.callback_query(TrackerActionsCallback.filter(F.action == "get_options"))
 @router.callback_query(DataState.AWAIT_PERIOD_TYPE, BackCallback.filter())
 async def tracker_actions_options(
-    callback: CallbackQueryWithMessage, state: FSMContext, lang: Language
+    callback: CallbackQueryWithMessage, state: FSMContext, t: TFunction, lang: Language
 ):
     await state.set_state(DataState.AWAIT_ACTION)
     await update_main_message(
         state=state,
         message=callback.message,
-        text=t(lang, MsgKey.DT_SELECT_ACTION),
+        text=t(MsgKey.DT_SELECT_ACTION),
         reply_markup=build_tracker_data_action_keyboard(
-            lang, extra_buttons=[(t(lang, MsgKey.BACK), BackCallback())]
+            lang, extra_buttons=[(t(MsgKey.BACK), BackCallback())]
         ),
     )
     await callback.answer()
@@ -61,6 +61,7 @@ async def period_type_select(
     callback: CallbackQueryWithMessage,
     callback_data: TrackerDataActionsCallback,
     state: FSMContext,
+    t: TFunction,
     lang: Language,
 ):
     await state.set_state(DataState.AWAIT_PERIOD_TYPE)
@@ -69,9 +70,9 @@ async def period_type_select(
     await update_main_message(
         state=state,
         message=callback.message,
-        text=t(lang, MsgKey.DT_SELECT_PERIOD_TYPE),
+        text=t(MsgKey.DT_SELECT_PERIOD_TYPE),
         reply_markup=build_period_keyboard(
-            lang, extra_buttons=[(t(lang, MsgKey.BACK), BackCallback())]
+            lang, extra_buttons=[(t(MsgKey.BACK), BackCallback())]
         ),
     )
     await callback.answer()
@@ -82,16 +83,17 @@ async def period_select(
     callback: CallbackQueryWithMessage,
     callback_data: PeriodCallback,
     state: FSMContext,
+    t: TFunction,
     lang: Language,
 ):
-    period_word = t(lang, PERIOD_TYPES[callback_data.period])
+    period_word = t(PERIOD_TYPES[callback_data.period])
     await state.set_state(DataState.AWAIT_PERIOD_VALUE)
     await state.update_data(data={ST_DT_PERIOD_TYPE: callback_data.period})
 
     await update_main_message(
         state=state,
         message=callback.message,
-        text=t(lang, MsgKey.DT_PERIOD_ENTER_NUMBER, period_word=period_word),
+        text=t(MsgKey.DT_PERIOD_ENTER_NUMBER, period_word=period_word),
     )
     await callback.answer()
 
@@ -102,15 +104,16 @@ async def handle_period_value(
     state: FSMContext,
     data_service: DataService,
     tracker_service: TrackerService,
+    t: TFunction,
     lang: Language,
 ):
     if not message.text or not message.text.isdecimal():
-        await message.answer(t(lang, MsgKey.DT_WRONG_VALUE))
+        await message.answer(t(MsgKey.DT_WRONG_VALUE))
         return
     try:
         period_value = int(message.text)
     except (ValueError, TypeError):
-        await message.answer(t(lang, MsgKey.DT_WRONG_VALUE))
+        await message.answer(t(MsgKey.DT_WRONG_VALUE))
         return
 
     await state.update_data(data={ST_DT_PERIOD_VALUE: period_value})
@@ -126,10 +129,10 @@ async def handle_period_value(
                 convert_date(data[ST_DT_PERIOD_TYPE], int(message.text)),
             )
             if not res:
-                await message.answer(t(lang, MsgKey.DT_NO_RECORDS))
+                await message.answer(t(MsgKey.DT_NO_RECORDS))
                 return
             file = BufferedInputFile(res.getvalue(), filename="data.csv")
-            await message.answer(t(lang, MsgKey.DT_SENDING_CSV))
+            await message.answer(t(MsgKey.DT_SENDING_CSV))
             await message.answer_document(document=file)
         case "table":
             await message.answer("TODO")
@@ -146,13 +149,13 @@ async def handle_period_value(
             await update_main_message(
                 state=state,
                 message=message,
-                text=t(lang, MsgKey.DT_SELECT_FIELDS),
+                text=t(MsgKey.DT_SELECT_FIELDS),
                 reply_markup=build_tracker_fields_keyboard(
                     tracker,
                     lang,
                     extra_buttons=[
-                        (t(lang, MsgKey.CONFIRM), ConfirmCallback()),
-                        (t(lang, MsgKey.CANCEL), CancelCallback()),
+                        (t(MsgKey.CONFIRM), ConfirmCallback()),
+                        (t(MsgKey.CANCEL), CancelCallback()),
                     ],
                 ),
             )
@@ -164,6 +167,7 @@ async def handle_field(
     callback_data: FieldCallback,
     state: FSMContext,
     tracker_service: TrackerService,
+    t: TFunction,
     lang: Language,
 ):
     field_name = callback_data.name
@@ -180,15 +184,15 @@ async def handle_field(
     await update_main_message(
         state=state,
         message=callback.message,
-        text=t(lang, MsgKey.DT_SELECTED_FIELDS, selected_fields=fields_text),
+        text=t(MsgKey.DT_SELECTED_FIELDS, selected_fields=fields_text),
         reply_markup=build_tracker_fields_keyboard(
             tracker,
             lang,
             marked_fields=set(selected_fields),
             mark="✅",
             extra_buttons=[
-                (t(lang, MsgKey.CONFIRM), ConfirmCallback()),
-                (t(lang, MsgKey.CANCEL), CancelCallback()),
+                (t(MsgKey.CONFIRM), ConfirmCallback()),
+                (t(MsgKey.CANCEL), CancelCallback()),
             ],
         ),
     )
@@ -201,6 +205,7 @@ async def handle_field_confirm(
     state: FSMContext,
     data_service: DataService,
     tracker_service: TrackerService,
+    t: TFunction,
     lang: Language,
 ):
     await state.set_state(None)
@@ -226,7 +231,7 @@ async def handle_field_confirm(
         from_date=convert_date(data[ST_DT_PERIOD_TYPE], data[ST_DT_PERIOD_VALUE]),
     )
     if not res:
-        await callback.message.answer(t(lang, MsgKey.DT_NO_RECORDS))
+        await callback.message.answer(t(MsgKey.DT_NO_RECORDS))
         await callback.answer()
         return
     await update_main_message(

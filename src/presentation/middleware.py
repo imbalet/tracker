@@ -8,6 +8,7 @@ from aiogram.types import (
     TelegramObject,
 )
 
+from src.presentation.utils import _t
 from src.services.database import DataService, TrackerService, UserService
 
 
@@ -40,7 +41,9 @@ class LanguageMiddleware(BaseMiddleware):
         data: Dict[str, Any],
     ) -> Any:
         lang = getattr(event.from_user, "language_code", None) or self.default_lang
-        data["lang"] = "ru" if lang.startswith("ru") else "en"
+        lang = "ru" if lang.startswith("ru") else "en"
+        data["lang"] = lang
+        data["t"] = lambda text, **kwargs: _t(lang=lang, key=text, **kwargs)
         return await handler(event, data)
 
 
