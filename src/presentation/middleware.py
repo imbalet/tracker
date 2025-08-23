@@ -8,7 +8,7 @@ from aiogram.types import (
     TelegramObject,
 )
 
-from src.presentation.utils import _t
+from src.presentation.utils import KeyboardBuilder, _t
 from src.services.database import DataService, TrackerService, UserService
 
 
@@ -27,6 +27,10 @@ class DBMiddleware(BaseMiddleware):
         data["data_service"] = DataService(session_factory=self.sessionmaker)
         data["tracker_service"] = TrackerService(session_factory=self.sessionmaker)
         data["user_service"] = UserService(session_factory=self.sessionmaker)
+        t = data.get("t")
+        if not t:
+            raise RuntimeError("Error getting 't' func from middleware data")
+        data["kbr_builder"] = KeyboardBuilder(t=t)
         return await handler(event, data)
 
 
@@ -40,7 +44,15 @@ class LanguageMiddleware(BaseMiddleware):
         event: Message | CallbackQuery,
         data: Dict[str, Any],
     ) -> Any:
-        lang = getattr(event.from_user, "language_code", None) or self.default_lang
+        user_obj = None
+        if isinstance(event, Message):
+            user_obj = event.from_user
+        elif isinstance(event, CallbackQuery):
+            user_obj = event.from_user
+        elif hasattr(event, "message") and isinstance(event.message, Message):
+            user_obj = event.message.from_user
+
+        lang = getattr(user_obj, "language_code", None) or self.default_lang
         lang = "ru" if lang.startswith("ru") else "en"
         data["lang"] = lang
         data["t"] = lambda text, **kwargs: _t(lang=lang, key=text, **kwargs)

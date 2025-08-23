@@ -35,8 +35,6 @@ async def main() -> None:
     dp.errors.register(
         service_exceptions_handler, ExceptionTypeFilter(ServiceExceptions)
     )
-    dp.message.middleware(LanguageMiddleware())
-    dp.callback_query.middleware(LanguageMiddleware())
 
     bot = Bot(
         token=config.BOT_TOKEN,
@@ -58,6 +56,7 @@ async def main() -> None:
     dp.include_router(general_router)
     dp.include_router(data_router)
 
+    dp.update.middleware(LanguageMiddleware())
     dp.update.middleware(DBMiddleware(await get_sessionmaker()))
     await dp.start_polling(bot)
 

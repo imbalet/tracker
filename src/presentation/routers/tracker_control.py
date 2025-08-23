@@ -17,16 +17,13 @@ from src.presentation.constants import (
     ST_TR_FIELD_VALUES,
     ST_TRACKER_ID,
 )
-from src.presentation.constants.text import Language, MsgKey
+from src.presentation.constants.text import MsgKey
 from src.presentation.middleware import CallbackMessageMiddleware
 from src.presentation.states import AddingData, DataState, TrackerControlState
 from src.presentation.utils import (
     CallbackQueryWithMessage,
+    KeyboardBuilder,
     TFunction,
-    build_enum_values_keyboard,
-    build_tracker_action_keyboard,
-    build_tracker_fields_keyboard,
-    build_trackers_keyboard,
     get_tracker_data_description_from_dto,
     get_tracker_description_from_dto,
     update_main_message,
@@ -51,10 +48,10 @@ async def show_trackers_button(
     state: FSMContext,
     tracker_service: TrackerService,
     t: TFunction,
-    lang: Language,
+    kbr_builder: KeyboardBuilder,
 ):
-    tracker = await tracker_service.get_by_user_id(str(callback.message.chat.id))
-    if not tracker:
+    trackers = await tracker_service.get_by_user_id(str(callback.message.chat.id))
+    if not trackers:
         await callback.message.answer(text=t(MsgKey.TR_NO_TRACKERS))
         return
 
@@ -62,7 +59,7 @@ async def show_trackers_button(
         state=state,
         message=callback.message,
         text=t(MsgKey.TR_TRACKERS),
-        reply_markup=build_trackers_keyboard(tracker, lang),
+        reply_markup=kbr_builder.build_trackers_keyboard(trackers),
     )
     await callback.answer()
 
@@ -73,10 +70,10 @@ async def show_trackers(
     state: FSMContext,
     tracker_service: TrackerService,
     t: TFunction,
-    lang: Language,
+    kbr_builder: KeyboardBuilder,
 ) -> None:
-    tracker = await tracker_service.get_by_user_id(str(message.chat.id))
-    if not tracker:
+    trackers = await tracker_service.get_by_user_id(str(message.chat.id))
+    if not trackers:
         await message.answer(text=t(MsgKey.TR_NO_TRACKERS))
         return
 
@@ -84,7 +81,7 @@ async def show_trackers(
         state=state,
         message=message,
         text=t(MsgKey.TR_TRACKERS),
-        reply_markup=build_trackers_keyboard(tracker, lang),
+        reply_markup=kbr_builder.build_trackers_keyboard(trackers),
         create_new=True,
     )
 
@@ -96,7 +93,7 @@ async def describe_tracker(
     state: FSMContext,
     tracker_service: TrackerService,
     t: TFunction,
-    lang: Language,
+    kbr_builder: KeyboardBuilder,
 ):
     res = await tracker_service.get_by_id(callback_data.id)
     if not res:
@@ -115,9 +112,9 @@ async def describe_tracker(
         state=state,
         message=callback.message,
         text=get_tracker_description_from_dto(res),
-        reply_markup=build_tracker_action_keyboard(
-            lang, extra_buttons=[(t(MsgKey.BACK), BackCallback())]
-        ),
+        reply_markup=kbr_builder.conf(
+            add_back_button=True
+        ).build_tracker_action_keyboard(),
     )
     await callback.answer()
 
@@ -128,7 +125,7 @@ async def start_tracking(
     state: FSMContext,
     tracker_service: TrackerService,
     t: TFunction,
-    lang: Language,
+    kbr_builder: KeyboardBuilder,
 ) -> None:
     await state.clear()
     # text can't be empty
@@ -152,11 +149,9 @@ async def start_tracking(
         state=state,
         message=message,
         text=get_tracker_data_description_from_dto(tracker, data={}),
-        reply_markup=build_tracker_fields_keyboard(
-            tracker,
-            lang,
-            extra_buttons=[(t(MsgKey.CANCEL), CancelCallback())],
-        ),
+        reply_markup=kbr_builder.conf(
+            add_cancel_button=True
+        ).build_tracker_fields_keyboard(tracker),
         create_new=True,
     )
 
@@ -167,7 +162,7 @@ async def handle_field(
     callback_data: FieldCallback,
     state: FSMContext,
     t: TFunction,
-    lang: Language,
+    kbr_builder: KeyboardBuilder,
 ):
     data = await state.get_data()
     await state.update_data(data={ST_TR_CURRENT_FIELD: callback_data.name})
@@ -185,7 +180,7 @@ async def handle_field(
             state=state,
             message=callback.message,
             text=t(MsgKey.TR_ENTER_FIELD_VALUE, field_name=callback_data.name),
-            reply_markup=build_enum_values_keyboard(values=enum_values, lang=lang),
+            reply_markup=kbr_builder.build_enum_values_keyboard(enum_values),
         )
     else:
         await update_main_message(
@@ -203,7 +198,7 @@ async def handle_enum_value(
     state: FSMContext,
     tracker_service: TrackerService,
     t: TFunction,
-    lang: Language,
+    kbr_builder: KeyboardBuilder,
 ):
     data = await state.get_data()
     current_field = data[ST_TR_CURRENT_FIELD]
@@ -233,11 +228,10 @@ async def handle_enum_value(
             state=state,
             text=get_tracker_data_description_from_dto(tracker, field_values),
             message=callback.message,
-            reply_markup=build_tracker_fields_keyboard(
-                tracker,
-                lang,
-                set(field_values.keys()),
-                extra_buttons=[(t(MsgKey.CANCEL), CancelCallback())],
+            reply_markup=kbr_builder.conf(
+                add_cancel_button=True
+            ).build_tracker_fields_keyboard(
+                tracker, exclude_fields=set(field_values.keys())
             ),
         )
     await callback.answer()
@@ -249,7 +243,7 @@ async def handle_field_value(
     state: FSMContext,
     tracker_service: TrackerService,
     t: TFunction,
-    lang: Language,
+    kbr_builder: KeyboardBuilder,
 ):
     data = await state.get_data()
     current_field = data[ST_TR_CURRENT_FIELD]
@@ -280,11 +274,10 @@ async def handle_field_value(
             state=state,
             text=get_tracker_data_description_from_dto(tracker, field_values),
             message=message,
-            reply_markup=build_tracker_fields_keyboard(
-                tracker,
-                lang,
-                set(field_values.keys()),
-                extra_buttons=[(t(MsgKey.CANCEL), CancelCallback())],
+            reply_markup=kbr_builder.conf(
+                add_cancel_button=True
+            ).build_tracker_fields_keyboard(
+                tracker, exclude_fields=set(field_values.keys())
             ),
             create_new=True,
         )
@@ -292,7 +285,7 @@ async def handle_field_value(
 
 @router.callback_query(AddingData.AWAIT_NEXT_ACTION, CancelCallback.filter())
 async def handle_cancel(
-    callback: CallbackQueryWithMessage, state: FSMContext, t: TFunction, lang: Language
+    callback: CallbackQueryWithMessage, state: FSMContext, t: TFunction
 ):
     await state.clear()
     await callback.message.edit_text(

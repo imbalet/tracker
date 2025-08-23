@@ -20,14 +20,12 @@ from src.presentation.constants import (
     ST_DT_SELECTED_FIELDS,
     ST_TRACKER_ID,
 )
-from src.presentation.constants.text import Language, MsgKey
+from src.presentation.constants.text import MsgKey
 from src.presentation.states import DataState
 from src.presentation.utils import (
     CallbackQueryWithMessage,
+    KeyboardBuilder,
     TFunction,
-    build_period_keyboard,
-    build_tracker_data_action_keyboard,
-    build_tracker_fields_keyboard,
     convert_date,
     update_main_message,
 )
@@ -42,16 +40,19 @@ router = Router(name=__name__)
 @router.callback_query(TrackerActionsCallback.filter(F.action == "get_options"))
 @router.callback_query(DataState.AWAIT_PERIOD_TYPE, BackCallback.filter())
 async def tracker_actions_options(
-    callback: CallbackQueryWithMessage, state: FSMContext, t: TFunction, lang: Language
+    callback: CallbackQueryWithMessage,
+    state: FSMContext,
+    t: TFunction,
+    kbr_builder: KeyboardBuilder,
 ):
     await state.set_state(DataState.AWAIT_ACTION)
     await update_main_message(
         state=state,
         message=callback.message,
         text=t(MsgKey.DT_SELECT_ACTION),
-        reply_markup=build_tracker_data_action_keyboard(
-            lang, extra_buttons=[(t(MsgKey.BACK), BackCallback())]
-        ),
+        reply_markup=kbr_builder.conf(
+            add_back_button=True
+        ).build_tracker_data_action_keyboard(),
     )
     await callback.answer()
 
@@ -62,7 +63,7 @@ async def period_type_select(
     callback_data: TrackerDataActionsCallback,
     state: FSMContext,
     t: TFunction,
-    lang: Language,
+    kbr_builder: KeyboardBuilder,
 ):
     await state.set_state(DataState.AWAIT_PERIOD_TYPE)
     await state.update_data(data={ST_DT_ACTION: callback_data.action})
@@ -71,9 +72,7 @@ async def period_type_select(
         state=state,
         message=callback.message,
         text=t(MsgKey.DT_SELECT_PERIOD_TYPE),
-        reply_markup=build_period_keyboard(
-            lang, extra_buttons=[(t(MsgKey.BACK), BackCallback())]
-        ),
+        reply_markup=kbr_builder.conf(add_back_button=True).build_period_keyboard(),
     )
     await callback.answer()
 
@@ -84,7 +83,6 @@ async def period_select(
     callback_data: PeriodCallback,
     state: FSMContext,
     t: TFunction,
-    lang: Language,
 ):
     period_word = t(PERIOD_TYPES[callback_data.period])
     await state.set_state(DataState.AWAIT_PERIOD_VALUE)
@@ -105,7 +103,7 @@ async def handle_period_value(
     data_service: DataService,
     tracker_service: TrackerService,
     t: TFunction,
-    lang: Language,
+    kbr_builder: KeyboardBuilder,
 ):
     if not message.text or not message.text.isdecimal():
         await message.answer(t(MsgKey.DT_WRONG_VALUE))
@@ -150,14 +148,9 @@ async def handle_period_value(
                 state=state,
                 message=message,
                 text=t(MsgKey.DT_SELECT_FIELDS),
-                reply_markup=build_tracker_fields_keyboard(
-                    tracker,
-                    lang,
-                    extra_buttons=[
-                        (t(MsgKey.CONFIRM), ConfirmCallback()),
-                        (t(MsgKey.CANCEL), CancelCallback()),
-                    ],
-                ),
+                reply_markup=kbr_builder.conf(
+                    add_cancel_button=True, add_confirm_button=True
+                ).build_tracker_fields_keyboard(tracker),
             )
 
 
@@ -168,7 +161,7 @@ async def handle_field(
     state: FSMContext,
     tracker_service: TrackerService,
     t: TFunction,
-    lang: Language,
+    kbr_builder: KeyboardBuilder,
 ):
     field_name = callback_data.name
     data = await state.get_data()
@@ -185,15 +178,10 @@ async def handle_field(
         state=state,
         message=callback.message,
         text=t(MsgKey.DT_SELECTED_FIELDS, selected_fields=fields_text),
-        reply_markup=build_tracker_fields_keyboard(
-            tracker,
-            lang,
-            marked_fields=set(selected_fields),
-            mark="✅",
-            extra_buttons=[
-                (t(MsgKey.CONFIRM), ConfirmCallback()),
-                (t(MsgKey.CANCEL), CancelCallback()),
-            ],
+        reply_markup=kbr_builder.conf(
+            add_cancel_button=True, add_confirm_button=True
+        ).build_tracker_fields_keyboard(
+            tracker, marked_fields=set(selected_fields), mark="✅"
         ),
     )
     await callback.answer()
@@ -206,7 +194,6 @@ async def handle_field_confirm(
     data_service: DataService,
     tracker_service: TrackerService,
     t: TFunction,
-    lang: Language,
 ):
     await state.set_state(None)
     data = await state.get_data()

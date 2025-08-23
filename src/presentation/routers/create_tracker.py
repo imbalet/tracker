@@ -9,14 +9,13 @@ from src.presentation.constants import (
     ST_CR_CUR_FIELD_TYPE,
     ST_CR_TRACKER,
 )
-from src.presentation.constants.text import Language, MsgKey
+from src.presentation.constants.text import MsgKey
 from src.presentation.middleware import CallbackMessageMiddleware
 from src.presentation.states import TrackerCreation
 from src.presentation.utils import (
     CallbackQueryWithMessage,
+    KeyboardBuilder,
     TFunction,
-    build_action_keyboard,
-    build_field_type_keyboard,
     get_tracker_description,
     get_tracker_description_from_dto,
     update_main_message,
@@ -31,7 +30,7 @@ router.callback_query.middleware(CallbackMessageMiddleware())
 
 @router.message(Command("add_tracker"))
 async def start_tracker_creation(
-    message: Message, state: FSMContext, t: TFunction, lang: Language
+    message: Message, state: FSMContext, t: TFunction
 ) -> None:
     await state.clear()
     await state.set_state(TrackerCreation.AWAIT_TRACKER_NAME)
@@ -40,7 +39,7 @@ async def start_tracker_creation(
 
 @router.message(TrackerCreation.AWAIT_TRACKER_NAME)
 async def process_tracker_name(
-    message: Message, state: FSMContext, t: TFunction, lang: Language
+    message: Message, state: FSMContext, t: TFunction, kbr_builder: KeyboardBuilder
 ):
     if not message.text:
         await message.answer(t(MsgKey.CR_AT_LEAST_ONE_SYM))
@@ -54,9 +53,9 @@ async def process_tracker_name(
         state=state,
         message=message,
         text=get_tracker_description(tracker_dict, t(MsgKey.CR_CREATING)),  # type: ignore
-        reply_markup=build_field_type_keyboard(
-            lang, extra_buttons=[(t(MsgKey.CANCEL), CancelCallback())]
-        ),
+        reply_markup=kbr_builder.conf(
+            add_cancel_button=True
+        ).build_field_type_keyboard(),
         create_new=True,
     )
 
@@ -67,7 +66,6 @@ async def process_field_type(
     callback_data: FieldTypeCallback,
     state: FSMContext,
     t: TFunction,
-    lang: Language,
 ):
     await state.update_data(data={ST_CR_CUR_FIELD_TYPE: callback_data.type})
 
@@ -88,9 +86,7 @@ async def process_field_type(
 
 
 @router.message(TrackerCreation.AWAIT_ENUM_VALUES)
-async def process_enum_values(
-    message: Message, state: FSMContext, t: TFunction, lang: Language
-):
+async def process_enum_values(message: Message, state: FSMContext, t: TFunction):
     if not message.text:
         await update_main_message(
             state=state,
@@ -124,7 +120,7 @@ async def process_enum_values(
 
 @router.message(TrackerCreation.AWAIT_FIELD_NAME)
 async def process_field_name(
-    message: Message, state: FSMContext, t: TFunction, lang: Language
+    message: Message, state: FSMContext, t: TFunction, kbr_builder: KeyboardBuilder
 ):
     if not message.text:
         await update_main_message(
@@ -180,7 +176,7 @@ async def process_field_name(
         state=state,
         message=message,
         text=get_tracker_description(tracker, t(MsgKey.CR_CREATING)),
-        reply_markup=build_action_keyboard(lang),
+        reply_markup=kbr_builder.build_action_keyboard(),
         create_new=True,
     )
 
@@ -189,7 +185,10 @@ async def process_field_name(
     TrackerCreation.AWAIT_NEXT_ACTION, ActionCallback.filter(F.action == "add_field")
 )
 async def process_next_action_add_field(
-    callback: CallbackQueryWithMessage, state: FSMContext, t: TFunction, lang: Language
+    callback: CallbackQueryWithMessage,
+    state: FSMContext,
+    t: TFunction,
+    kbr_builder: KeyboardBuilder,
 ):
     data = await state.get_data()
     tracker = data[ST_CR_TRACKER]
@@ -198,9 +197,9 @@ async def process_next_action_add_field(
         state=state,
         message=callback.message,
         text=get_tracker_description(tracker, t(MsgKey.CR_CREATING)),
-        reply_markup=build_field_type_keyboard(
-            lang, extra_buttons=[(t(MsgKey.CANCEL), CancelCallback())]
-        ),
+        reply_markup=kbr_builder.conf(
+            add_cancel_button=True
+        ).build_field_type_keyboard(),
     )
 
 
@@ -213,7 +212,6 @@ async def process_next_action_finish(
     tracker_service: TrackerService,
     user_service: UserService,
     t: TFunction,
-    lang: Language,
 ):
     data = await state.get_data()
     tracker = data[ST_CR_TRACKER]
@@ -242,7 +240,7 @@ async def process_next_action_finish(
     CancelCallback.filter(),
 )
 async def cancel_creation(
-    callback: CallbackQueryWithMessage, state: FSMContext, t: TFunction, lang: Language
+    callback: CallbackQueryWithMessage, state: FSMContext, t: TFunction
 ):
     await update_main_message(
         state=state,
