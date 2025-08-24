@@ -20,9 +20,13 @@ from src.presentation.utils import (
     get_tracker_description_from_dto,
     update_main_message,
 )
-from src.schemas import TrackerStructureCreate
 from src.services.database import TrackerService, UserService
-from src.use_cases import CreateTrackerStructureUseCase
+from src.use_cases import (
+    CreateTrackerDraftUseCase,
+    FinishTrackerCreation,
+    ProcessEnumValuesUseCase,
+    ProcessFieldNameUseCase,
+)
 
 router = Router(name=__name__)
 router.callback_query.middleware(CallbackMessageMiddleware())
@@ -41,14 +45,17 @@ async def start_tracker_creation(
 async def process_tracker_name(
     message: Message, state: FSMContext, t: TFunction, kbr_builder: KeyboardBuilder
 ):
-    if not message.text:
-        await message.answer(t(MsgKey.CR_AT_LEAST_ONE_SYM))
+    create_tracker_draft_uc = CreateTrackerDraftUseCase()
+    tracker_dict, err = create_tracker_draft_uc.execute(name=message.text or "")
+
+    if err:
+        match err:
+            case CreateTrackerDraftUseCase.Error.NO_TEXT:
+                await message.answer(t(MsgKey.CR_AT_LEAST_ONE_SYM))
         return
 
-    tracker_dict = {"name": message.text, "fields": {}}
     await state.update_data(data={ST_CR_TRACKER: tracker_dict})
     await state.set_state(TrackerCreation.AWAIT_FIELD_TYPE)
-
     await update_main_message(
         state=state,
         message=message,
@@ -67,49 +74,45 @@ async def process_field_type(
     state: FSMContext,
     t: TFunction,
 ):
-    await state.update_data(data={ST_CR_CUR_FIELD_TYPE: callback_data.type})
-
     if callback_data.type == "enum":
         next_state = TrackerCreation.AWAIT_ENUM_VALUES
         message_text = t(MsgKey.CR_SELECTED_ENUM, type=callback_data.type.upper())
     else:
         next_state = TrackerCreation.AWAIT_FIELD_NAME
         message_text = t(MsgKey.CR_SELECTED, type=callback_data.type.upper())
-    await state.set_state(next_state)
 
-    await update_main_message(
-        state=state,
-        message=callback.message,
-        text=message_text,
-    )
+    await state.set_state(next_state)
+    await state.update_data(data={ST_CR_CUR_FIELD_TYPE: callback_data.type})
+    await update_main_message(state=state, message=callback.message, text=message_text)
     await callback.answer()
 
 
 @router.message(TrackerCreation.AWAIT_ENUM_VALUES)
 async def process_enum_values(message: Message, state: FSMContext, t: TFunction):
-    if not message.text:
-        await update_main_message(
-            state=state,
-            message=message,
-            text=t(MsgKey.CR_EMPTY_ENUM),
-            create_new=True,
-        )
-        return
+    process_enum_values_uc = ProcessEnumValuesUseCase()
+    options, err = process_enum_values_uc.execute(message.text)
 
-    options = str(message.text).split("/")
-    if len(options) < 2:
-        await update_main_message(
-            state=state,
-            message=message,
-            text=t(MsgKey.CR_ENUM_WRONG_COUNT, count=len(options)),
-            create_new=True,
-        )
+    if err:
+        match err:
+            case ProcessEnumValuesUseCase.Error.NO_TEXT:
+                await update_main_message(
+                    state=state,
+                    message=message,
+                    text=t(MsgKey.CR_EMPTY_ENUM),
+                    create_new=True,
+                )
+            case ProcessEnumValuesUseCase.Error.WRONG_COUNT:
+                await update_main_message(
+                    state=state,
+                    message=message,
+                    text=t(MsgKey.CR_ENUM_WRONG_COUNT, count=len(options)),
+                    create_new=True,
+                )
         return
-
-    await state.update_data(data={ST_CR_CUR_ENUM_VALUES: message.text})
-    await state.set_state(TrackerCreation.AWAIT_FIELD_NAME)
 
     text = t(MsgKey.CR_SELECTED_ENUM_VALUES, enum_values=", ".join(options))
+    await state.update_data(data={ST_CR_CUR_ENUM_VALUES: message.text})
+    await state.set_state(TrackerCreation.AWAIT_FIELD_NAME)
     await update_main_message(
         state=state,
         message=message,
@@ -122,46 +125,48 @@ async def process_enum_values(message: Message, state: FSMContext, t: TFunction)
 async def process_field_name(
     message: Message, state: FSMContext, t: TFunction, kbr_builder: KeyboardBuilder
 ):
-    if not message.text:
-        await update_main_message(
-            state=state,
-            message=message,
-            text=t(MsgKey.CR_NO_FIELD_NAME),
-            create_new=True,
-        )
-        return
-
     data = await state.get_data()
-    field_name = str(message.text).strip()
     field_type = data[ST_CR_CUR_FIELD_TYPE]
+    enum_values = data.get(ST_CR_CUR_ENUM_VALUES, "")
     tracker = data[ST_CR_TRACKER]
 
-    if field_name in tracker["fields"]:
-        await update_main_message(
-            state=state,
-            message=message,
-            text=(
-                t(
-                    MsgKey.CR_FIELD_NAME_EXISTS_ENUM,
-                    name=message.text,
-                    field_name=data[ST_CR_CUR_FIELD_TYPE],
-                    values=data[ST_CR_CUR_ENUM_VALUES],
+    process_field_name_uc = ProcessFieldNameUseCase()
+    tracker, err = process_field_name_uc.execute(
+        field_name=message.text,
+        field_type=field_type,
+        enum_values=enum_values,
+        tracker=tracker,
+    )
+    if err:
+        match err:
+            case ProcessFieldNameUseCase.Error.NO_TEXT:
+                await update_main_message(
+                    state=state,
+                    message=message,
+                    text=t(MsgKey.CR_NO_FIELD_NAME),
+                    create_new=True,
                 )
-                if data[ST_CR_CUR_FIELD_TYPE] == "enum"
-                else t(
-                    MsgKey.CR_FIELD_NAME_EXISTS,
-                    name=message.text,
-                    field_name=data[ST_CR_CUR_FIELD_TYPE],
+            case ProcessFieldNameUseCase.Error.ALREADY_EXISTS:
+                await update_main_message(
+                    state=state,
+                    message=message,
+                    text=(
+                        t(
+                            MsgKey.CR_FIELD_NAME_EXISTS_ENUM,
+                            name=message.text,
+                            field_name=data[ST_CR_CUR_FIELD_TYPE],
+                            values=data[ST_CR_CUR_ENUM_VALUES],
+                        )
+                        if data[ST_CR_CUR_FIELD_TYPE] == "enum"
+                        else t(
+                            MsgKey.CR_FIELD_NAME_EXISTS,
+                            name=message.text,
+                            field_name=data[ST_CR_CUR_FIELD_TYPE],
+                        )
+                    ),
+                    create_new=True,
                 )
-            ),
-            create_new=True,
-        )
         return
-
-    field_data = {"type": field_type}
-    if field_type == "enum":
-        field_data["values"] = data.get(ST_CR_CUR_ENUM_VALUES, "")
-    tracker["fields"][field_name] = field_data
 
     await state.update_data(
         data={
@@ -170,12 +175,12 @@ async def process_field_name(
             ST_CR_CUR_ENUM_VALUES: None,
         }
     )
-    await state.set_state(TrackerCreation.AWAIT_NEXT_ACTION)
 
+    await state.set_state(TrackerCreation.AWAIT_NEXT_ACTION)
     await update_main_message(
         state=state,
         message=message,
-        text=get_tracker_description(tracker, t(MsgKey.CR_CREATING)),
+        text=get_tracker_description(tracker, t(MsgKey.CR_CREATING)),  # type: ignore
         reply_markup=kbr_builder.build_action_keyboard(),
         create_new=True,
     )
@@ -192,6 +197,7 @@ async def process_next_action_add_field(
 ):
     data = await state.get_data()
     tracker = data[ST_CR_TRACKER]
+
     await state.set_state(TrackerCreation.AWAIT_FIELD_TYPE)
     await update_main_message(
         state=state,
@@ -215,21 +221,24 @@ async def process_next_action_finish(
 ):
     data = await state.get_data()
     tracker = data[ST_CR_TRACKER]
-    if len(tracker["fields"]) == 0:
-        await callback.message.answer(t(MsgKey.CR_AT_LEAST_ONE_FIELD_REQUIRED))
-        return
 
-    uc = CreateTrackerStructureUseCase(tracker_service, user_service)
-    res = await uc.execute(
+    uc = FinishTrackerCreation(tracker_service, user_service)
+    tracker, err = await uc.execute(
+        tracker=tracker,
         user_id=str(callback.message.chat.id),
-        tracker_name=tracker["name"],
-        structure=TrackerStructureCreate(data=tracker["fields"]),
     )
+    if err:
+        match err:
+            case FinishTrackerCreation.Error.AT_LEAST_ONE_FIELD_REQUIRED:
+                await callback.message.answer(t(MsgKey.CR_AT_LEAST_ONE_FIELD_REQUIRED))
+        return
 
     await update_main_message(
         state=state,
         message=callback.message,
-        text=t(MsgKey.CR_CREATED, description=get_tracker_description_from_dto(res)),
+        text=t(
+            MsgKey.CR_CREATED, description=get_tracker_description_from_dto(tracker)  # type: ignore
+        ),
     )
     await state.clear()
     await callback.answer()

@@ -5,6 +5,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.fsm.storage.memory import MemoryStorage
 
+from src.presentation.utils.keyboard import KeyboardBuilder
+from src.presentation.utils.translations import _t
 from src.services.database import TrackerService, UserService
 
 
@@ -30,3 +32,13 @@ def state():
 @pytest.fixture
 def lang():
     return "ru"
+
+
+@pytest.fixture
+def t_(lang):
+    return lambda text, **kwargs: _t(lang=lang, key=text, **kwargs)
+
+
+@pytest.fixture
+def kbr_builder(t_):
+    return KeyboardBuilder(t=t_)

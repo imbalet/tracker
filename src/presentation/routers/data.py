@@ -1,3 +1,6 @@
+from io import BytesIO
+from typing import cast
+
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
@@ -31,7 +34,13 @@ from src.presentation.utils import (
 )
 from src.services.database.data_service import DataService
 from src.services.database.tracker_service import TrackerService
-from src.use_cases import GetCSVUseCase, GetStatisticsUseCase
+from src.use_cases import (
+    GetStatisticsUseCase,
+    HandleActionUseCase,
+    HandleFieldsConfirmUseCase,
+    HandleFieldUseCase,
+    HandlePeriodValueUseCase,
+)
 
 router = Router(name=__name__)
 
@@ -78,7 +87,7 @@ async def period_type_select(
 
 
 @router.callback_query(PeriodCallback.filter())
-async def period_select(
+async def period_value_select(
     callback: CallbackQueryWithMessage,
     callback_data: PeriodCallback,
     state: FSMContext,
@@ -105,30 +114,40 @@ async def handle_period_value(
     t: TFunction,
     kbr_builder: KeyboardBuilder,
 ):
-    if not message.text or not message.text.isdecimal():
-        await message.answer(t(MsgKey.DT_WRONG_VALUE))
-        return
-    try:
-        period_value = int(message.text)
-    except (ValueError, TypeError):
-        await message.answer(t(MsgKey.DT_WRONG_VALUE))
+    handle_period_value_uc = HandlePeriodValueUseCase()
+    period_value, err = handle_period_value_uc.execute(text=message.text)
+
+    if err:
+        match err:
+            case HandlePeriodValueUseCase.Error.NO_TEXT:
+                await message.answer(t(MsgKey.DT_WRONG_VALUE))
+            case HandlePeriodValueUseCase.Error.WRONG_VALUE:
+                await message.answer(t(MsgKey.DT_WRONG_VALUE))
         return
 
-    await state.update_data(data={ST_DT_PERIOD_VALUE: period_value})
     data = await state.get_data()
+    await state.update_data(data={ST_DT_PERIOD_VALUE: period_value})
     action = data[ST_DT_ACTION]
+
+    handle_action_uc = HandleActionUseCase(
+        tracker_service=tracker_service, data_service=data_service
+    )
 
     match action:
         case "csv":
             await state.clear()
-            uc = GetCSVUseCase(data_service)
-            res = await uc.execute(
-                data[ST_TRACKER_ID],
-                convert_date(data[ST_DT_PERIOD_TYPE], int(message.text)),
+            res, err = await handle_action_uc.execute_csv(
+                tracker_id=data[ST_TRACKER_ID],
+                period_type=data[ST_DT_PERIOD_TYPE],
+                period_value=period_value,
             )
-            if not res:
-                await message.answer(t(MsgKey.DT_NO_RECORDS))
+            if err:
+                match err:
+                    case HandleActionUseCase.Error.NO_RECORDS:
+                        await message.answer(t(MsgKey.DT_NO_RECORDS))
                 return
+
+            res = cast(BytesIO, res)
             file = BufferedInputFile(res.getvalue(), filename="data.csv")
             await message.answer(t(MsgKey.DT_SENDING_CSV))
             await message.answer_document(document=file)
@@ -163,17 +182,16 @@ async def handle_field(
     t: TFunction,
     kbr_builder: KeyboardBuilder,
 ):
-    field_name = callback_data.name
     data = await state.get_data()
     selected_fields: list = data[ST_DT_SELECTED_FIELDS]
-    if field_name in selected_fields:
-        selected_fields.remove(field_name)
-    else:
-        selected_fields.append(field_name)
-    await state.update_data(data={ST_DT_SELECTED_FIELDS: selected_fields})
 
-    fields_text = "\n".join([f"- {i}" for i in selected_fields])
-    tracker = await tracker_service.get_by_id(data[ST_TRACKER_ID])
+    handle_field_uc = HandleFieldUseCase(tracker_service=tracker_service)
+    selected_fields, fields_text, tracker = await handle_field_uc.execute(
+        field_name=callback_data.name,
+        selected_fields=selected_fields,
+        tracker_id=data[ST_TRACKER_ID],
+    )
+
     await update_main_message(
         state=state,
         message=callback.message,
@@ -198,17 +216,13 @@ async def handle_field_confirm(
     await state.set_state(None)
     data = await state.get_data()
     selected_fields: list = data[ST_DT_SELECTED_FIELDS]
-    tracker = await tracker_service.get_by_id(data[ST_TRACKER_ID])
-    numeric_fields = [
-        i
-        for i in selected_fields
-        if tracker.structure.data[i]["type"] in ("int", "float")
-    ]
-    categorial_fields = [
-        i
-        for i in selected_fields
-        if tracker.structure.data[i]["type"] not in ("int", "float")
-    ]
+
+    handle_fields_confirm_uc = HandleFieldsConfirmUseCase(
+        tracker_service=tracker_service
+    )
+    numeric_fields, categorial_fields = await handle_fields_confirm_uc.execute(
+        selected_fields=selected_fields, tracker_id=data[ST_TRACKER_ID]
+    )
 
     uc = GetStatisticsUseCase(data_service=data_service)
     res = await uc.execute(
