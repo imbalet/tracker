@@ -25,12 +25,16 @@ class TrackerStructureResponse(TrackerStructureCreate):
     id: UUID
 
 
-class TrackerCreate(BaseModel):
+class TrackerCreateBase(BaseModel):
     name: str
     user_id: str
 
 
-class TrackerResponse(TrackerCreate):
+class TrackerCreate(TrackerCreateBase):
+    structure: TrackerStructureCreate
+
+
+class TrackerResponse(TrackerCreateBase):
     id: UUID
     user: UserResponse
     created_at: datetime

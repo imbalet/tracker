@@ -20,7 +20,7 @@ field_types_list: list[FieldDataType] = ["int", "float", "string", "enum"]
 # TODO rewrite to dataclass
 class FieldDefinition(TypedDict):
     type: FieldDataType
-    values: NotRequired[str | None]  # only for enum type
+    values: NotRequired[list[str] | None]  # only for enum type
 
 
 FieldType = dict[str, FieldDefinition]

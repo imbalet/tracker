@@ -12,14 +12,7 @@ from src.presentation.callbacks import (
     FieldCallback,
     TrackerCallback,
 )
-from src.presentation.constants import (
-    ST_TR_CURRENT_FIELD,
-    ST_TR_CURRENT_TRACKER,
-    ST_TR_FIELD_VALUES,
-    ST_TRACKER_ID,
-)
 from src.presentation.constants.text import MsgKey
-from src.presentation.middleware import CallbackMessageMiddleware
 from src.presentation.states import AddingData, DataState, TrackerControlState
 from src.presentation.utils import (
     CallbackQueryWithMessage,
@@ -29,6 +22,7 @@ from src.presentation.utils import (
     get_tracker_description_from_dto,
     update_main_message,
 )
+from src.presentation.utils.state import StateModel
 from src.schemas import TrackerResponse
 from src.services.database import TrackerService
 from src.use_cases import (
@@ -40,7 +34,26 @@ from src.use_cases import (
 )
 
 router = Router(name=__name__)
-router.callback_query.middleware(CallbackMessageMiddleware())
+
+
+class DataModelStrictTracker(StateModel):
+    tracker: TrackerResponse
+
+
+class DataModelStrict(DataModelStrictTracker):
+    cur_field: str
+    field_values: dict[str, str]
+
+
+class DataModelTR(DataModelStrictTracker):
+    cur_field: str
+    field_values: dict[str, str] | None = None
+
+
+class DataModel(StateModel):
+    tracker: TrackerResponse | None = None
+    cur_field: str | None = None
+    field_values: dict[str, str] | None = None
 
 
 @router.message(Command("my_trackers"))
@@ -117,7 +130,8 @@ async def describe_tracker(
         return
 
     tracker = cast(TrackerResponse, tracker)
-    await state.update_data(data={ST_TRACKER_ID: tracker.id})
+    await DataModel(tracker=tracker).save(state)
+
     await state.set_state(TrackerControlState.AWAIT_TRACKER_ACTION)
     await update_main_message(
         state=state,
@@ -155,7 +169,8 @@ async def start_tracking(
         return
 
     tracker = cast(TrackerResponse, tracker)
-    await state.update_data(data={ST_TR_CURRENT_TRACKER: tracker.model_dump()})
+    await DataModel(tracker=tracker).save(state)
+
     await state.set_state(AddingData.AWAIT_NEXT_ACTION)
     await update_main_message(
         state=state,
@@ -176,10 +191,10 @@ async def handle_field(
     t: TFunction,
     kbr_builder: KeyboardBuilder,
 ):
-    data = await state.get_data()
+    data = await DataModelStrictTracker.load(state)
     get_field_type_uc = GetFieldType()
-    field_type, tracker, err = get_field_type_uc.execute(
-        tracker_dict=data[ST_TR_CURRENT_TRACKER], field_name=callback_data.name
+    field_type, err = get_field_type_uc.execute(
+        tracker=data.tracker, field_name=callback_data.name
     )
     if err:
         match err:
@@ -187,13 +202,12 @@ async def handle_field(
                 # impossible, TODO: add handling, just in case
                 pass
         return
+    await DataModel(cur_field=callback_data.name).save(state)
 
-    await state.update_data(data={ST_TR_CURRENT_FIELD: callback_data.name})
     await state.set_state(AddingData.AWAIT_FIELD_VALUE)
     if field_type == "enum":
-        enum_values = (
-            tracker.structure.data[callback_data.name].get("values", "").split("/")  # type: ignore
-        )
+        enum_values = data.tracker.structure.data[callback_data.name].get("values", [])
+        enum_values = enum_values or []
         kbr = kbr_builder.build_enum_values_keyboard(enum_values)
     else:
         kbr = None
@@ -216,15 +230,16 @@ async def handle_field_value(
     t: TFunction,
     kbr_builder: KeyboardBuilder,
 ):
-    data = await state.get_data()
-    current_field = data[ST_TR_CURRENT_FIELD]
-    field_values: dict = data.get(ST_TR_FIELD_VALUES, {})
+    data = await DataModelTR.load(state)
+    current_field = data.cur_field
+    field_values: dict = data.field_values or {}
+
     current_field_value = message.text
     field_values[current_field] = current_field_value
 
     handle_field_value_uc = HandleFieldValueUseCase(tracker_service)
-    res, tracker, err = await handle_field_value_uc.execute(
-        tracker_dict=data[ST_TR_CURRENT_TRACKER],
+    res, err = await handle_field_value_uc.execute(
+        tracker=data.tracker,
         field_name=current_field,
         field_value=current_field_value,
         field_values=field_values,
@@ -235,7 +250,6 @@ async def handle_field_value(
                 pass
         return
 
-    tracker = cast(TrackerResponse, tracker)
     if res:
         await update_main_message(
             state=state,
@@ -245,16 +259,17 @@ async def handle_field_value(
         )
         await state.clear()
     else:
-        await state.update_data(data={ST_TR_FIELD_VALUES: field_values})
+        await DataModel(field_values=field_values).save(state)
+
         await state.set_state(AddingData.AWAIT_NEXT_ACTION)
         await update_main_message(
             state=state,
-            text=get_tracker_data_description_from_dto(tracker, field_values),
+            text=get_tracker_data_description_from_dto(data.tracker, field_values),
             message=message,
             reply_markup=kbr_builder.conf(
                 add_cancel_button=True
             ).build_tracker_fields_keyboard(
-                tracker, exclude_fields=set(field_values.keys())
+                data.tracker, exclude_fields=set(field_values.keys())
             ),
             create_new=True,
         )
@@ -269,15 +284,16 @@ async def handle_enum_value(
     t: TFunction,
     kbr_builder: KeyboardBuilder,
 ):
-    data = await state.get_data()
-    current_field = data[ST_TR_CURRENT_FIELD]
-    field_values: dict = data.get(ST_TR_FIELD_VALUES, {})
+    data = await DataModelTR.load(state)
+    current_field = data.cur_field
+    field_values: dict = data.field_values or {}
+
     current_field_value = callback_data.value
     field_values[current_field] = current_field_value
 
     handle_field_value_uc = HandleFieldValueUseCase(tracker_service)
-    res, tracker, err = await handle_field_value_uc.execute(
-        tracker_dict=data[ST_TR_CURRENT_TRACKER],
+    res, err = await handle_field_value_uc.execute(
+        tracker=data.tracker,
         field_name=current_field,
         field_value=current_field_value,
         field_values=field_values,
@@ -288,7 +304,6 @@ async def handle_enum_value(
                 pass
         return
 
-    tracker = cast(TrackerResponse, tracker)
     if res:
         await update_main_message(
             state=state,
@@ -297,16 +312,16 @@ async def handle_enum_value(
         )
         await state.clear()
     else:
-        await state.update_data(data={ST_TR_FIELD_VALUES: field_values})
+        await DataModel(field_values=field_values).save(state)
         await state.set_state(AddingData.AWAIT_NEXT_ACTION)
         await update_main_message(
             state=state,
-            text=get_tracker_data_description_from_dto(tracker, field_values),
+            text=get_tracker_data_description_from_dto(data.tracker, field_values),
             message=callback.message,
             reply_markup=kbr_builder.conf(
                 add_cancel_button=True
             ).build_tracker_fields_keyboard(
-                tracker, exclude_fields=set(field_values.keys())
+                data.tracker, exclude_fields=set(field_values.keys())
             ),
         )
     callback.answer

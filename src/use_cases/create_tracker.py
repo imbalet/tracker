@@ -16,11 +16,16 @@ class CreateTrackerDraftUseCase:
     class Error(StrEnum):
         NO_TEXT = auto()
 
-    def execute(self, name: str) -> tuple[dict, Error | None]:
+    def execute(self, name: str) -> tuple[TrackerCreate | None, Error | None]:
         name = name.strip()
         if not name:
-            return {}, self.Error.NO_TEXT
-        return {"name": name, "fields": {}}, None
+            return None, self.Error.NO_TEXT
+        return (
+            TrackerCreate(
+                name=name, user_id="", structure=TrackerStructureCreate(data={})
+            ),
+            None,
+        )
 
 
 class ProcessEnumValuesUseCase:
@@ -46,20 +51,19 @@ class ProcessFieldNameUseCase:
     def execute(
         self,
         field_name: str | None,
-        field_type: str,
-        enum_values: str | None,
-        tracker: dict,
-    ) -> tuple[dict, Error | None]:
+        field_type: FieldDataType,
+        enum_values: list[str],
+        tracker: TrackerCreate,
+    ) -> tuple[TrackerCreate | None, Error | None]:
         if not field_name or not field_name.strip():
-            return ({}, self.Error.NO_TEXT)
+            return (None, self.Error.NO_TEXT)
         field_name = field_name.strip()
-        if field_name in tracker["fields"]:
-            return ({}, self.Error.ALREADY_EXISTS)
+        if field_name in tracker.structure.data:
+            return (None, self.Error.ALREADY_EXISTS)
 
-        field_data = {"type": field_type}
+        tracker.structure.data[field_name] = {"type": field_type}
         if field_type == "enum" and enum_values:
-            field_data["values"] = enum_values
-        tracker["fields"][field_name] = field_data
+            tracker.structure.data[field_name]["values"] = enum_values
 
         return (tracker, None)
 
@@ -75,20 +79,15 @@ class FinishTrackerCreation:
         self.user_service = user_service
 
     async def execute(
-        self, tracker: dict, user_id: str
+        self, tracker: TrackerCreate, user_id: str
     ) -> tuple[TrackerResponse | None, Error | None]:
-        if len(tracker["fields"]) == 0:
+        if len(tracker.structure.data) == 0:
             return None, self.Error.AT_LEAST_ONE_FIELD_REQUIRED
 
         user = await self.user_service.get(user_id)
         if user is None:
             user = await self.user_service.create(user_id)
 
-        structure = TrackerStructureCreate(data=tracker["fields"])
-
-        self.dj = DynamicJson.from_fields(fields=structure.data)
-        created_tracker = await self.tracker_service.create(
-            tracker=TrackerCreate(name=tracker["name"], user_id=user_id),
-            structure=structure,
-        )
+        self.dj = DynamicJson.from_fields(fields=tracker.structure.data)
+        created_tracker = await self.tracker_service.create(tracker=tracker)
         return created_tracker, None

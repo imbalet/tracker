@@ -10,7 +10,6 @@ from src.schemas import (
     TrackerDataCreate,
     TrackerDataResponse,
     TrackerResponse,
-    TrackerStructureCreate,
 )
 
 
@@ -19,11 +18,9 @@ class TrackerService:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self.session_factory = session_factory
 
-    async def create(
-        self, tracker: TrackerCreate, structure: TrackerStructureCreate
-    ) -> TrackerResponse:
+    async def create(self, tracker: TrackerCreate) -> TrackerResponse:
         async with self.session_factory() as session:
-            new_structure = TrackerStructureOrm(data=structure.data)
+            new_structure = TrackerStructureOrm(data=tracker.structure.data)
             session.add(new_structure)
             await session.flush()
             new_tracker = TrackerOrm(

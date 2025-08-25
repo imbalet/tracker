@@ -1,5 +1,5 @@
 from io import BytesIO
-from typing import cast
+from typing import Literal, cast
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
@@ -15,14 +15,7 @@ from src.presentation.callbacks import (
     TrackerActionsCallback,
     TrackerDataActionsCallback,
 )
-from src.presentation.constants import (
-    PERIOD_TYPES,
-    ST_DT_ACTION,
-    ST_DT_PERIOD_TYPE,
-    ST_DT_PERIOD_VALUE,
-    ST_DT_SELECTED_FIELDS,
-    ST_TRACKER_ID,
-)
+from src.presentation.constants import PERIOD_TYPES
 from src.presentation.constants.text import MsgKey
 from src.presentation.states import DataState
 from src.presentation.utils import (
@@ -32,6 +25,8 @@ from src.presentation.utils import (
     convert_date,
     update_main_message,
 )
+from src.presentation.utils.state import StateModel
+from src.schemas.tracker import TrackerResponse
 from src.services.database.data_service import DataService
 from src.services.database.tracker_service import TrackerService
 from src.use_cases import (
@@ -43,6 +38,25 @@ from src.use_cases import (
 )
 
 router = Router(name=__name__)
+
+
+class DataModelAction(StateModel):
+    tracker: TrackerResponse
+    action: str
+    period_type: Literal["years", "months", "weeks", "days", "hours", "minutes"]
+
+
+class DataModelStrict(DataModelAction):
+    period_value: int
+    selected_fields: list[str]
+
+
+class DataModel(StateModel):
+    tracker: TrackerResponse | None = None
+    action: str | None = None
+    period_type: str | None = None
+    period_value: int | None = None
+    selected_fields: list[str] | None = None
 
 
 @router.callback_query(DataState.AWAIT_FIELDS_SELECTION, CancelCallback.filter())
@@ -75,7 +89,7 @@ async def period_type_select(
     kbr_builder: KeyboardBuilder,
 ):
     await state.set_state(DataState.AWAIT_PERIOD_TYPE)
-    await state.update_data(data={ST_DT_ACTION: callback_data.action})
+    await DataModel(action=callback_data.action).save(state)
 
     await update_main_message(
         state=state,
@@ -95,7 +109,7 @@ async def period_value_select(
 ):
     period_word = t(PERIOD_TYPES[callback_data.period])
     await state.set_state(DataState.AWAIT_PERIOD_VALUE)
-    await state.update_data(data={ST_DT_PERIOD_TYPE: callback_data.period})
+    await DataModel(period_type=callback_data.period).save(state)
 
     await update_main_message(
         state=state,
@@ -125,20 +139,19 @@ async def handle_period_value(
                 await message.answer(t(MsgKey.DT_WRONG_VALUE))
         return
 
-    data = await state.get_data()
-    await state.update_data(data={ST_DT_PERIOD_VALUE: period_value})
-    action = data[ST_DT_ACTION]
+    data = await DataModelAction.load(state)
+    await DataModel(period_value=period_value).save(state)
 
     handle_action_uc = HandleActionUseCase(
         tracker_service=tracker_service, data_service=data_service
     )
 
-    match action:
+    match data.action:
         case "csv":
             await state.clear()
             res, err = await handle_action_uc.execute_csv(
-                tracker_id=data[ST_TRACKER_ID],
-                period_type=data[ST_DT_PERIOD_TYPE],
+                tracker_id=data.tracker.id,
+                period_type=data.period_type,
                 period_value=period_value,
             )
             if err:
@@ -161,8 +174,8 @@ async def handle_period_value(
             pass
         case "statistics":
             await state.set_state(DataState.AWAIT_FIELDS_SELECTION)
-            tracker = await tracker_service.get_by_id(data[ST_TRACKER_ID])
-            await state.update_data(data={ST_DT_SELECTED_FIELDS: []})
+            tracker = await tracker_service.get_by_id(data.tracker.id)
+            await DataModel(selected_fields=[]).save(state)
             await update_main_message(
                 state=state,
                 message=message,
@@ -182,15 +195,16 @@ async def handle_field(
     t: TFunction,
     kbr_builder: KeyboardBuilder,
 ):
-    data = await state.get_data()
-    selected_fields: list = data[ST_DT_SELECTED_FIELDS]
+    data = await DataModelStrict.load(state)
+    selected_fields: list = data.selected_fields
 
     handle_field_uc = HandleFieldUseCase(tracker_service=tracker_service)
     selected_fields, fields_text, tracker = await handle_field_uc.execute(
         field_name=callback_data.name,
         selected_fields=selected_fields,
-        tracker_id=data[ST_TRACKER_ID],
+        tracker_id=data.tracker.id,
     )
+    await DataModel(selected_fields=selected_fields).save(state)
 
     await update_main_message(
         state=state,
@@ -214,23 +228,30 @@ async def handle_field_confirm(
     t: TFunction,
 ):
     await state.set_state(None)
-    data = await state.get_data()
-    selected_fields: list = data[ST_DT_SELECTED_FIELDS]
+    data = await DataModelStrict.load(state)
+    selected_fields: list = data.selected_fields
 
     handle_fields_confirm_uc = HandleFieldsConfirmUseCase(
         tracker_service=tracker_service
     )
     numeric_fields, categorial_fields = await handle_fields_confirm_uc.execute(
-        selected_fields=selected_fields, tracker_id=data[ST_TRACKER_ID]
+        selected_fields=selected_fields, tracker_id=data.tracker.id
     )
-
+    # TODO: add selected fields length validation
     uc = GetStatisticsUseCase(data_service=data_service)
-    res = await uc.execute(
+    res, err = await uc.execute(
         categorial_fields=categorial_fields,
         numeric_fields=numeric_fields,
-        tracker_id=data[ST_TRACKER_ID],
-        from_date=convert_date(data[ST_DT_PERIOD_TYPE], data[ST_DT_PERIOD_VALUE]),
+        tracker_id=data.tracker.id,
+        from_date=convert_date(data.period_type, data.period_value),
     )
+    if err:
+        match err:
+            case GetStatisticsUseCase.Error.NO_FIELDS:
+                # TODO: change text
+                await callback.message.answer(t(MsgKey.DT_NO_RECORDS))
+                await callback.answer()
+        return
     if not res:
         await callback.message.answer(t(MsgKey.DT_NO_RECORDS))
         await callback.answer()

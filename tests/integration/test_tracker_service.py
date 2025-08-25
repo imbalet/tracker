@@ -1,5 +1,6 @@
+from schemas.tracker import TrackerCreate
 from src.schemas import (
-    TrackerCreate,
+    TrackerCreateBase,
     TrackerDataCreate,
     TrackerResponse,
     TrackerStructureCreate,
@@ -10,13 +11,10 @@ from src.services.database import TrackerService
 
 async def test_valid_create(
     sample_tracker_create: TrackerCreate,
-    sample_tracker_structure_create: TrackerStructureCreate,
     tracker_service: TrackerService,
     sample_user_created: UserResponse,
 ):
-    res = await tracker_service.create(
-        tracker=sample_tracker_create, structure=sample_tracker_structure_create
-    )
+    res = await tracker_service.create(tracker=sample_tracker_create)
     assert res.user == sample_user_created
     assert len(res.data) == 0
 

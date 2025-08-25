@@ -1,25 +1,24 @@
+from typing import cast
+
 from aiogram import F, Router
 from aiogram.filters import Command, or_f
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
+from src.core.dynamic_json.types import FieldDataType
 from src.presentation.callbacks import ActionCallback, CancelCallback, FieldTypeCallback
-from src.presentation.constants import (
-    ST_CR_CUR_ENUM_VALUES,
-    ST_CR_CUR_FIELD_TYPE,
-    ST_CR_TRACKER,
-)
 from src.presentation.constants.text import MsgKey
-from src.presentation.middleware import CallbackMessageMiddleware
 from src.presentation.states import TrackerCreation
 from src.presentation.utils import (
     CallbackQueryWithMessage,
     KeyboardBuilder,
+    StateModel,
     TFunction,
     get_tracker_description,
     get_tracker_description_from_dto,
     update_main_message,
 )
+from src.schemas import TrackerCreate
 from src.services.database import TrackerService, UserService
 from src.use_cases import (
     CreateTrackerDraftUseCase,
@@ -29,7 +28,18 @@ from src.use_cases import (
 )
 
 router = Router(name=__name__)
-router.callback_query.middleware(CallbackMessageMiddleware())
+
+
+class DataModelStrict(StateModel):
+    tracker: TrackerCreate
+    cur_field_type: FieldDataType
+    cur_enum_values: list[str]
+
+
+class DataModel(StateModel):
+    tracker: TrackerCreate | None = None
+    cur_field_type: FieldDataType | None = None
+    cur_enum_values: list[str] | None = None
 
 
 @router.message(Command("add_tracker"))
@@ -46,7 +56,7 @@ async def process_tracker_name(
     message: Message, state: FSMContext, t: TFunction, kbr_builder: KeyboardBuilder
 ):
     create_tracker_draft_uc = CreateTrackerDraftUseCase()
-    tracker_dict, err = create_tracker_draft_uc.execute(name=message.text or "")
+    tracker, err = create_tracker_draft_uc.execute(name=message.text or "")
 
     if err:
         match err:
@@ -54,12 +64,13 @@ async def process_tracker_name(
                 await message.answer(t(MsgKey.CR_AT_LEAST_ONE_SYM))
         return
 
-    await state.update_data(data={ST_CR_TRACKER: tracker_dict})
+    tracker = cast(TrackerCreate, tracker)
+    await DataModel(tracker=tracker).save(state)
     await state.set_state(TrackerCreation.AWAIT_FIELD_TYPE)
     await update_main_message(
         state=state,
         message=message,
-        text=get_tracker_description(tracker_dict, t(MsgKey.CR_CREATING)),  # type: ignore
+        text=get_tracker_description(tracker, t(MsgKey.CR_CREATING)),  # type: ignore
         reply_markup=kbr_builder.conf(
             add_cancel_button=True
         ).build_field_type_keyboard(),
@@ -82,7 +93,7 @@ async def process_field_type(
         message_text = t(MsgKey.CR_SELECTED, type=callback_data.type.upper())
 
     await state.set_state(next_state)
-    await state.update_data(data={ST_CR_CUR_FIELD_TYPE: callback_data.type})
+    await DataModel(cur_field_type=callback_data.type).save(state)
     await update_main_message(state=state, message=callback.message, text=message_text)
     await callback.answer()
 
@@ -111,7 +122,7 @@ async def process_enum_values(message: Message, state: FSMContext, t: TFunction)
         return
 
     text = t(MsgKey.CR_SELECTED_ENUM_VALUES, enum_values=", ".join(options))
-    await state.update_data(data={ST_CR_CUR_ENUM_VALUES: message.text})
+    await DataModel(cur_enum_values=options).save(state)
     await state.set_state(TrackerCreation.AWAIT_FIELD_NAME)
     await update_main_message(
         state=state,
@@ -125,17 +136,14 @@ async def process_enum_values(message: Message, state: FSMContext, t: TFunction)
 async def process_field_name(
     message: Message, state: FSMContext, t: TFunction, kbr_builder: KeyboardBuilder
 ):
-    data = await state.get_data()
-    field_type = data[ST_CR_CUR_FIELD_TYPE]
-    enum_values = data.get(ST_CR_CUR_ENUM_VALUES, "")
-    tracker = data[ST_CR_TRACKER]
+    data = await DataModelStrict.load(state)
 
     process_field_name_uc = ProcessFieldNameUseCase()
     tracker, err = process_field_name_uc.execute(
         field_name=message.text,
-        field_type=field_type,
-        enum_values=enum_values,
-        tracker=tracker,
+        field_type=data.cur_field_type,
+        enum_values=data.cur_enum_values,
+        tracker=data.tracker,
     )
     if err:
         match err:
@@ -154,28 +162,23 @@ async def process_field_name(
                         t(
                             MsgKey.CR_FIELD_NAME_EXISTS_ENUM,
                             name=message.text,
-                            field_name=data[ST_CR_CUR_FIELD_TYPE],
-                            values=data[ST_CR_CUR_ENUM_VALUES],
+                            field_name=data.cur_field_type,
+                            values=", ".join(data.cur_enum_values),
                         )
-                        if data[ST_CR_CUR_FIELD_TYPE] == "enum"
+                        if data.cur_field_type == "enum"
                         else t(
                             MsgKey.CR_FIELD_NAME_EXISTS,
                             name=message.text,
-                            field_name=data[ST_CR_CUR_FIELD_TYPE],
+                            field_name=data.cur_field_type,
                         )
                     ),
                     create_new=True,
                 )
         return
 
-    await state.update_data(
-        data={
-            ST_CR_TRACKER: tracker,
-            ST_CR_CUR_FIELD_TYPE: None,
-            ST_CR_CUR_ENUM_VALUES: None,
-        }
+    await DataModel(tracker=tracker, cur_enum_values=None, cur_field_type=None).save(
+        state
     )
-
     await state.set_state(TrackerCreation.AWAIT_NEXT_ACTION)
     await update_main_message(
         state=state,
@@ -195,14 +198,13 @@ async def process_next_action_add_field(
     t: TFunction,
     kbr_builder: KeyboardBuilder,
 ):
-    data = await state.get_data()
-    tracker = data[ST_CR_TRACKER]
+    data = await DataModelStrict.load(state)
 
     await state.set_state(TrackerCreation.AWAIT_FIELD_TYPE)
     await update_main_message(
         state=state,
         message=callback.message,
-        text=get_tracker_description(tracker, t(MsgKey.CR_CREATING)),
+        text=get_tracker_description(data.tracker, t(MsgKey.CR_CREATING)),
         reply_markup=kbr_builder.conf(
             add_cancel_button=True
         ).build_field_type_keyboard(),
@@ -219,12 +221,11 @@ async def process_next_action_finish(
     user_service: UserService,
     t: TFunction,
 ):
-    data = await state.get_data()
-    tracker = data[ST_CR_TRACKER]
+    data = await DataModelStrict.load(state)
 
     uc = FinishTrackerCreation(tracker_service, user_service)
     tracker, err = await uc.execute(
-        tracker=tracker,
+        tracker=data.tracker,
         user_id=str(callback.message.chat.id),
     )
     if err:

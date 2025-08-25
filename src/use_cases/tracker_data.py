@@ -63,6 +63,9 @@ class GetCSVUseCase:
 
 
 class GetStatisticsUseCase:
+    class Error(StrEnum):
+        NO_FIELDS = auto()
+
     def __init__(self, data_service: DataService) -> None:
         self.data_service = data_service
 
@@ -72,14 +75,16 @@ class GetStatisticsUseCase:
         numeric_fields: list[str],
         categorial_fields: list[str],
         from_date: datetime | None = None,
-    ) -> list[StaticticsTrackerData]:
+    ) -> tuple[list[StaticticsTrackerData], Error | None]:
+        if len(numeric_fields) == 0 and len(categorial_fields) == 0:
+            return [], self.Error.NO_FIELDS
         stats = await self.data_service.get_statistics(
             tracker_id=tracker_id,
             numeric_fields=numeric_fields,
             categorial_fields=categorial_fields,
             from_date=from_date,
         )
-        return stats
+        return stats, None
 
 
 class HandlePeriodValueUseCase:

@@ -28,10 +28,14 @@ class DynamicJson:
                 field_types[field_name] = (int, ...)
             elif field_props["type"] == "float":
                 field_types[field_name] = (float, ...)
-            elif field_props["type"] == "enum":
-                options = field_props["values"].split("/")  # type: ignore
+            elif (
+                field_props["type"] == "enum"
+                and "values" in field_props
+                and field_props["values"]
+            ):
+                options = field_props["values"]
                 enum_name = f"{field_name}_Enum"
-                enum_class = Enum(enum_name, {opt: opt for opt in options})  # type: ignore
+                enum_class = Enum(enum_name, {opt: opt for opt in options})
                 field_types[field_name] = (enum_class, ...)
             elif field_props["type"] == "string":
                 field_types[field_name] = (str, ...)

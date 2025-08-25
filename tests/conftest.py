@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from src.core.dynamic_json.types import FieldType, field_types_list
 from src.models import Base
 from src.schemas import (
-    TrackerCreate,
+    TrackerCreateBase,
     TrackerDataCreate,
     TrackerDataResponse,
     TrackerResponse,
@@ -17,6 +17,7 @@ from src.schemas import (
     UserCreate,
     UserResponse,
 )
+from src.schemas.tracker import TrackerCreate
 from src.services.database import DataService, TrackerService, UserService
 from tests.config import config
 
@@ -69,13 +70,20 @@ async def sample_user_created(
 
 
 @pytest.fixture
-def sample_tracker_create(sample_user_response: UserResponse) -> TrackerCreate:
-    return TrackerCreate(name="name", user_id=sample_user_response.id)
+def sample_tracker_create(
+    sample_user_response: UserResponse,
+    sample_tracker_structure_create: TrackerStructureCreate,
+) -> TrackerCreate:
+    return TrackerCreate(
+        name="name",
+        user_id=sample_user_response.id,
+        structure=sample_tracker_structure_create,
+    )
 
 
 @pytest.fixture
 def sample_tracker_response(
-    sample_tracker_create: TrackerCreate,
+    sample_tracker_create: TrackerCreateBase,
     sample_user_response: UserResponse,
     sample_tracker_structure_response: TrackerStructureResponse,
 ) -> TrackerResponse:
@@ -97,7 +105,7 @@ def sample_tracker_structure() -> FieldType:
     for i in field_types_list:
         structure[f"{i}_name"] = {"type": i}
         if i == "enum":
-            structure[f"{i}_name"]["values"] = "val1/val2/val3"
+            structure[f"{i}_name"]["values"] = ["val1", "val2", "val3"]
 
     return structure
 
@@ -119,7 +127,7 @@ def sample_tracker_data(sample_tracker_structure: FieldType) -> dict[str, Any]:
                     random.choices(string.ascii_letters + string.digits, k=5)
                 )
             case "enum":
-                value = random.choice(props["values"].split("/"))  # type: ignore
+                value = random.choice(props["values"])  # type: ignore
             case _:
                 raise ValueError()
 
@@ -170,9 +178,7 @@ async def sample_tracker_created(
     sample_user_created: UserResponse,
     tracker_service: TrackerService,
 ) -> TrackerResponse:
-    return await tracker_service.create(
-        tracker=sample_tracker_create, structure=sample_tracker_structure_create
-    )
+    return await tracker_service.create(tracker=sample_tracker_create)
 
 
 # Services mocks

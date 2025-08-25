@@ -3,9 +3,11 @@ from uuid import UUID
 
 from aiogram.filters.callback_data import CallbackData
 
+from src.core.dynamic_json.types import FieldDataType
+
 
 class FieldTypeCallback(CallbackData, prefix="field"):
-    type: Literal["int", "float", "enum", "string"]
+    type: FieldDataType
 
 
 class ActionCallback(CallbackData, prefix="action"):
@@ -30,7 +32,7 @@ class ConfirmCallback(CallbackData, prefix="confirm"):
 
 class FieldCallback(CallbackData, prefix="field"):
     name: str
-    type: str  # TODO literal
+    type: FieldDataType
 
 
 class TrackerActionsCallback(CallbackData, prefix="tracker_action"):

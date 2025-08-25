@@ -74,13 +74,12 @@ class GetFieldType:
         NO_FIELD = auto()
 
     def execute(
-        self, tracker_dict: dict, field_name: str
-    ) -> tuple[FieldDataType | None, TrackerResponse | None, Error | None]:
-        tracker = TrackerResponse.model_validate(tracker_dict)
+        self, tracker: TrackerResponse, field_name: str
+    ) -> tuple[FieldDataType | None, Error | None]:
         if field_name not in tracker.structure.data:
-            return None, None, self.Error.NO_FIELD
+            return None, self.Error.NO_FIELD
         field_type = tracker.structure.data[field_name]["type"]
-        return field_type, tracker, None
+        return field_type, None
 
 
 class HandleFieldValueUseCase:
@@ -92,14 +91,13 @@ class HandleFieldValueUseCase:
 
     async def execute(
         self,
-        tracker_dict: dict,
+        tracker: TrackerResponse,
         field_name: str,
         field_value: str | None,
         field_values: dict,
-    ) -> tuple[bool, TrackerResponse | None, Error | None]:
+    ) -> tuple[bool, Error | None]:
         if not field_value or not (field_value := field_value.strip()):
-            return False, None, self.Error.NO_TEXT
-        tracker = TrackerResponse.model_validate(tracker_dict)
+            return False, self.Error.NO_TEXT
         dj = DynamicJson.from_fields(fields=tracker.structure.data)
         dj.validate_one_field(field_name=field_name, field_value=field_value)
         if len(field_values) == len(tracker.structure.data):
@@ -107,5 +105,5 @@ class HandleFieldValueUseCase:
             await self.tracker_service.add_data(
                 TrackerDataCreate(tracker_id=tracker.id, data=field_values)
             )
-            return True, tracker, None
-        return False, tracker, None
+            return True, None
+        return False, None

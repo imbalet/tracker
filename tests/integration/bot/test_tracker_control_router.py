@@ -192,7 +192,7 @@ async def test_valid_first_call_handle_field_value(
         "another_name": {"type": "int"},
     }
     if field_type == "enum":
-        sample_tracker_response.structure.data["field_name"]["values"] = "yes/no"
+        sample_tracker_response.structure.data["field_name"]["values"] = ["yes", "no"]
     await state.update_data(
         current_field="field_name",
         current_tracker=sample_tracker_response.model_dump(),
@@ -236,7 +236,7 @@ async def test_valid_finish_handle_field_value(
         "another_name": {"type": "int"},
     }
     if field_type == "enum":
-        sample_tracker_response.structure.data["field_name"]["values"] = "yes/no"
+        sample_tracker_response.structure.data["field_name"]["values"] = ["yes", "no"]
 
     await state.update_data(
         current_field="field_name",

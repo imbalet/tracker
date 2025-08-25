@@ -233,7 +233,10 @@ class KeyboardBuilder(InlineKeyboardFactory):
         for name, props in tracker.structure.data.items():
             if exclude_fields and name in exclude_fields:
                 continue
-            button_text = f"{name}: {props['type'] if props['type'] != 'enum' else props['values']}"  # type: ignore
+            value = (
+                props["type"] if props["type"] != "enum" else ", ".join(props["values"])  # type: ignore
+            )
+            button_text = f"{name}: {value}"
             if marked_fields and name in marked_fields:
                 button_text = mark + button_text
             self.button_text(

@@ -94,4 +94,4 @@ async def test_empty_get_statistics(data_service_mock):
         from_date=datetime.now(),
     )
 
-    assert res == []
+    assert res == ([], None)
