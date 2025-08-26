@@ -33,8 +33,8 @@ from src.use_cases import (
     GetCSVUseCase,
     GetStatisticsUseCase,
     HandleFieldUseCase,
-    HandlePeriodValueUseCase,
     SplitFieldsByTypeUseCase,
+    ValidatePeriodValueUseCase,
 )
 
 router = Router(name=__name__)
@@ -128,14 +128,14 @@ async def handle_period_value(
     t: TFunction,
     kbr_builder: KeyboardBuilder,
 ):
-    handle_period_value_uc = HandlePeriodValueUseCase()
+    handle_period_value_uc = ValidatePeriodValueUseCase()
     period_value, err = handle_period_value_uc.execute(text=message.text)
 
     if err:
         match err:
             case (
-                HandlePeriodValueUseCase.Error.NO_TEXT
-                | HandlePeriodValueUseCase.Error.WRONG_VALUE
+                ValidatePeriodValueUseCase.Error.NO_TEXT
+                | ValidatePeriodValueUseCase.Error.WRONG_VALUE
             ):
                 await message.answer(t(MsgKey.DT_WRONG_VALUE))
         return

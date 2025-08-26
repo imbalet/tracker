@@ -179,6 +179,9 @@ async def process_field_name(
                     ),
                     create_new=True,
                 )
+            case ProcessFieldNameUseCase.Error.WRONG_STRUCTURE:
+                # TODO: handle
+                pass
         return
 
     await DataModel(tracker=tracker, cur_enum_values=None, cur_field_type=None).save(

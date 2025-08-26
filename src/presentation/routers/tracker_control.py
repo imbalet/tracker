@@ -26,8 +26,6 @@ from src.presentation.utils.state import StateModel
 from src.schemas import TrackerResponse
 from src.services.database import TrackerService
 from src.use_cases import (
-    DescribeTrackerUseCase,
-    GetTrackerInfoByNameUseCase,
     GetUserTrackersUseCase,
     HandleFieldValueUseCase,
     ValidateTrackingMessageUseCase,
@@ -115,18 +113,15 @@ async def describe_tracker(
     t: TFunction,
     kbr_builder: KeyboardBuilder,
 ):
-    describe_tracker_uc = DescribeTrackerUseCase(tracker_service=tracker_service)
-    tracker, err = await describe_tracker_uc.execute(tracker_id=callback_data.id)
+    tracker = await tracker_service.get_by_id(callback_data.id)
 
-    if err:
-        match err:
-            case DescribeTrackerUseCase.Error.NO_TRACKER:
-                await update_main_message(
-                    state=state,
-                    message=callback.message,
-                    text=t(MsgKey.TR_TRACKER_NOT_FOUND),
-                    create_new=True,
-                )
+    if not tracker:
+        await update_main_message(
+            state=state,
+            message=callback.message,
+            text=t(MsgKey.TR_TRACKER_NOT_FOUND),
+            create_new=True,
+        )
         return
 
     tracker = cast(TrackerResponse, tracker)
@@ -163,9 +158,8 @@ async def start_tracking(
         )
         return
 
-    get_tracker_info_uc = GetTrackerInfoByNameUseCase(tracker_service=tracker_service)
-    tracker, err = await get_tracker_info_uc.execute(name=tracker_name)
-    if err:
+    tracker = await tracker_service.get_by_name(tracker_name)
+    if not tracker:
         await message.answer(
             text=t(MsgKey.TR_TRACKER_NAME_NOT_FOUND, tracker_name=tracker_name)
         )

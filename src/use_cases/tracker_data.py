@@ -11,7 +11,7 @@ from src.services.database import DataService
 __all__ = [
     "GetCSVUseCase",
     "GetStatisticsUseCase",
-    "HandlePeriodValueUseCase",
+    "ValidatePeriodValueUseCase",
     "HandleFieldUseCase",
     "SplitFieldsByTypeUseCase",
 ]
@@ -99,7 +99,7 @@ class GetStatisticsUseCase:
         return stats, None
 
 
-class HandlePeriodValueUseCase:
+class ValidatePeriodValueUseCase:
     """Validates user input and extracts int value."""
 
     class Error(StrEnum):
@@ -123,6 +123,8 @@ class HandlePeriodValueUseCase:
             period_value = int(text)
         except Exception:
             return -1, self.Error.WRONG_VALUE
+        if period_value <= 0:
+            return -1, self.Error.WRONG_VALUE
         return period_value, None
 
 
@@ -143,6 +145,7 @@ class HandleFieldUseCase:
                 The list with updated selected fields
                 and formatted text for response.
         """
+        # TODO: move text formatting to another use case
         if field_name in selected_fields:
             selected_fields.remove(field_name)
         else:

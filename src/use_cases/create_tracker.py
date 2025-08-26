@@ -23,7 +23,7 @@ class CreateTrackerDraftUseCase:
     class Error(StrEnum):
         NO_TEXT = auto()
 
-    def execute(self, name: str) -> tuple[TrackerCreate | None, Error | None]:
+    def execute(self, name: str | None) -> tuple[TrackerCreate | None, Error | None]:
         """Creates DTO for tracker creation.
 
         Args:
@@ -34,8 +34,7 @@ class CreateTrackerDraftUseCase:
                 DTO with tracker name and tracker data structure initialized as empty (or None if an error occurred)\
                 and an error code (or None if successful).
         """
-        name = name.strip()
-        if not name:
+        if not name or not (name := name.strip()):
             return None, self.Error.NO_TEXT
         return (
             TrackerCreate(
@@ -63,13 +62,14 @@ class ProcessEnumValuesUseCase:
                 A list with enum values (or empty if an error occurred)\
                 and an error code (or None if successful).
         """
-        if not text or not text.strip():
+        if not text or not (text := text.strip()):
             return ([], self.Error.NO_TEXT)
-        text = text.strip()
-        options = list(map(str.strip, text.split("/")))
+
+        items = map(str.strip, text.split("/"))
+        options = list(filter(lambda x: x, dict.fromkeys(items)))
         if len(options) < 2:
-            return (options, self.Error.WRONG_COUNT)
-        return (options, None)
+            return (list(options), self.Error.WRONG_COUNT)
+        return (list(options), None)
 
 
 class ProcessFieldNameUseCase:
@@ -78,20 +78,21 @@ class ProcessFieldNameUseCase:
     class Error(StrEnum):
         NO_TEXT = auto()
         ALREADY_EXISTS = auto()
+        WRONG_STRUCTURE = auto()
 
     def execute(
         self,
+        tracker: TrackerCreate,
         field_name: str | None,
         field_type: FieldDataType,
-        enum_values: list[str],
-        tracker: TrackerCreate,
+        enum_values: list[str] | None = None,
     ) -> tuple[TrackerCreate | None, Error | None]:
         """Validates the provided field name and updates the tracker structure.
 
         Args:
             field_name (str | None): The name of the field.
             field_type (FieldDataType): The type of the field.
-            enum_values (list[str]): The enum values for the field, used only if the field type is 'enum'.
+            enum_values (list[str] | None): The enum values for the field, used only if the field type is 'enum'.
             tracker (TrackerCreate): The tracker DTO to be updated.
 
         Returns:
@@ -99,11 +100,15 @@ class ProcessFieldNameUseCase:
                 A tuple containing the updated tracker DTO (or None if an error occurred)\
                 and an error code (or None if successful).
         """
-        if not field_name or not field_name.strip():
+        enum_values = enum_values or []
+        if not field_name or not (field_name := field_name.strip()):
             return (None, self.Error.NO_TEXT)
-        field_name = field_name.strip()
         if field_name in tracker.structure.data:
             return (None, self.Error.ALREADY_EXISTS)
+        if (field_type == "enum" and not enum_values) or (
+            field_type != "enum" and enum_values
+        ):
+            return (None, self.Error.WRONG_STRUCTURE)
 
         tracker.structure.data[field_name] = {"type": field_type}
         if field_type == "enum" and enum_values:

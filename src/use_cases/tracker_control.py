@@ -1,5 +1,4 @@
 from enum import StrEnum, auto
-from uuid import UUID
 
 from src.core.dynamic_json import DynamicJson
 from src.schemas import TrackerResponse
@@ -8,10 +7,8 @@ from src.services.database import TrackerService
 
 __all__ = [
     "GetUserTrackersUseCase",
-    "DescribeTrackerUseCase",
     "ValidateTrackingMessageUseCase",
     "HandleFieldValueUseCase",
-    "GetTrackerInfoByNameUseCase",
 ]
 
 
@@ -39,60 +36,6 @@ class GetUserTrackersUseCase:
         if not trackers:
             return [], self.Error.NO_TRACKERS
         return trackers, None
-
-
-class DescribeTrackerUseCase:
-    """Returns tracker data."""
-
-    class Error(StrEnum):
-        NO_TRACKER = auto()
-
-    def __init__(self, tracker_service: TrackerService) -> None:
-        self.tracker_service = tracker_service
-
-    async def execute(
-        self, tracker_id: UUID
-    ) -> tuple[TrackerResponse | None, Error | None]:
-        """Returns tracker data.
-
-        Args:
-            tracker_id (UUID): Tracker ID.
-
-        Returns:
-            tuple[TrackerResponse | None, Error | None]:\
-                The tracker DTO (empty if an error occurred)\
-                and an error code (or None if successful).
-        """
-        tracker = await self.tracker_service.get_by_id(tracker_id=tracker_id)
-        if not tracker:
-            return None, self.Error.NO_TRACKER
-        return tracker, None
-
-
-class GetTrackerInfoByNameUseCase:
-    """Returns tracker data."""
-
-    class Error(StrEnum):
-        NO_TRACKER = auto()
-
-    def __init__(self, tracker_service: TrackerService) -> None:
-        self.tracker_service = tracker_service
-
-    async def execute(self, name: str) -> tuple[TrackerResponse | None, Error | None]:
-        """Returns tracker data.
-
-        Args:
-            name (str): The tracker name.
-
-        Returns:
-            tuple[TrackerResponse | None, Error | None]:\
-                The tracker DTO (empty if an error occurred)\
-                and an error code (or None if successful).
-        """
-        tracker = await self.tracker_service.get_by_name(name=name)
-        if not tracker:
-            return None, self.Error.NO_TRACKER
-        return tracker, None
 
 
 class ValidateTrackingMessageUseCase:
