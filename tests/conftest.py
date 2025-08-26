@@ -1,14 +1,13 @@
 import datetime
+import random
 from typing import Any
-from uuid import uuid4
+from uuid import UUID
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.core.dynamic_json.types import FieldType, field_types_list
-from src.models import Base
 from src.schemas import (
-    TrackerCreateBase,
+    TrackerCreate,
     TrackerDataCreate,
     TrackerDataResponse,
     TrackerResponse,
@@ -17,39 +16,21 @@ from src.schemas import (
     UserCreate,
     UserResponse,
 )
-from src.schemas.tracker import TrackerCreate
-from src.services.database import DataService, TrackerService, UserService
-from tests.config import config
+
+random.seed(42)
 
 
 @pytest.fixture
-async def async_session_factory():
-    engine = create_async_engine(
-        config.DB_URL,
-        echo=True,
-        pool_size=10,
-        max_overflow=20,
-        future=True,
-    )
-
-    AsyncSessionLocal = async_sessionmaker(
-        bind=engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-        autoflush=False,
-    )
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
-
-    yield AsyncSessionLocal
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+def fixed_now():
+    return datetime.datetime(2025, 8, 26, 12, 0, 0, tzinfo=datetime.UTC)
 
 
-# Data mocks
+@pytest.fixture
+def fixed_uuid():
+    return UUID("12345678-1234-5678-1234-567812345678")
+
+
+# DATA
 
 
 @pytest.fixture
@@ -58,15 +39,8 @@ def sample_user_create():
 
 
 @pytest.fixture
-def sample_user_response(sample_user_create):
+def sample_user_response(sample_user_create: UserCreate):
     return UserResponse(id=sample_user_create.id)
-
-
-@pytest.fixture
-async def sample_user_created(
-    sample_user_create: UserCreate, user_service: UserService
-):
-    return await user_service.create(sample_user_create.id)
 
 
 @pytest.fixture
@@ -83,18 +57,20 @@ def sample_tracker_create(
 
 @pytest.fixture
 def sample_tracker_response(
-    sample_tracker_create: TrackerCreateBase,
+    sample_tracker_create: TrackerCreate,
     sample_user_response: UserResponse,
     sample_tracker_structure_response: TrackerStructureResponse,
+    fixed_uuid: UUID,
+    fixed_now: datetime.datetime,
 ) -> TrackerResponse:
     return TrackerResponse(
         name=sample_tracker_create.name,
         user_id=sample_user_response.id,
         user=sample_user_response,
-        created_at=datetime.datetime.now(datetime.UTC),
+        created_at=fixed_now,
         structure_id=sample_tracker_structure_response.id,
         data=[],
-        id=uuid4(),
+        id=fixed_uuid,
         structure=sample_tracker_structure_response,
     )
 
@@ -106,26 +82,32 @@ def sample_tracker_structure() -> FieldType:
         structure[f"{i}_name"] = {"type": i}
         if i == "enum":
             structure[f"{i}_name"]["values"] = ["val1", "val2", "val3"]
-
     return structure
 
 
 @pytest.fixture
-def sample_tracker_data(sample_tracker_structure: FieldType) -> dict[str, Any]:
-    import random
-    import string
+def sample_tracker_structure_create() -> TrackerStructureCreate:
+    structure: FieldType = {}
+    for i in field_types_list:
+        structure[f"{i}_name"] = {"type": i}
+        if i == "enum":
+            structure[f"{i}_name"]["values"] = ["val1", "val2", "val3"]
+    return TrackerStructureCreate(data=structure)
 
+
+@pytest.fixture
+def sample_tracker_data(
+    sample_tracker_structure_create: TrackerStructureCreate,
+) -> dict[str, Any]:
     data = {}
-    for name, props in sample_tracker_structure.items():
+    for name, props in sample_tracker_structure_create.data.items():
         match props["type"]:
             case "int":
-                value = random.randint(-10, 10)
+                value = 42
             case "float":
-                value = random.uniform(-10, 10)
+                value = 14.5
             case "string":
-                value = "".join(
-                    random.choices(string.ascii_letters + string.digits, k=5)
-                )
+                value = "string"
             case "enum":
                 value = random.choice(props["values"])  # type: ignore
             case _:
@@ -136,64 +118,33 @@ def sample_tracker_data(sample_tracker_structure: FieldType) -> dict[str, Any]:
 
 
 @pytest.fixture
-def sample_tracker_structure_create(sample_tracker_structure) -> TrackerStructureCreate:
-    return TrackerStructureCreate(data=sample_tracker_structure)
-
-
-@pytest.fixture
 def sample_tracker_structure_response(
-    sample_tracker_structure_create: TrackerStructureCreate,
+    sample_tracker_structure_create: TrackerStructureCreate, fixed_uuid: UUID
 ):
     return TrackerStructureResponse(
         data=sample_tracker_structure_create.data,
-        id=uuid4(),
+        id=fixed_uuid,
     )
 
 
 @pytest.fixture
 def sample_tracker_data_create(
-    sample_tracker_response: TrackerResponse,
+    sample_tracker_response: TrackerResponse, sample_tracker_data: dict[str, Any]
 ) -> TrackerDataCreate:
     return TrackerDataCreate(
-        tracker_id=sample_tracker_response.id, data={"data1": "1", "data2": "yes"}
+        tracker_id=sample_tracker_response.id, data=sample_tracker_data
     )
 
 
 @pytest.fixture
 def sample_tracker_data_response(
     sample_tracker_data_create: TrackerDataCreate,
+    fixed_uuid: UUID,
+    fixed_now: datetime.datetime,
 ) -> TrackerDataResponse:
     return TrackerDataResponse(
         tracker_id=sample_tracker_data_create.tracker_id,
         data=sample_tracker_data_create.data,
-        id=uuid4(),
-        created_at=datetime.datetime.now(datetime.UTC),
+        id=fixed_uuid,
+        created_at=fixed_now,
     )
-
-
-@pytest.fixture
-async def sample_tracker_created(
-    sample_tracker_create: TrackerCreate,
-    sample_tracker_structure_create: TrackerStructureCreate,
-    sample_user_created: UserResponse,
-    tracker_service: TrackerService,
-) -> TrackerResponse:
-    return await tracker_service.create(tracker=sample_tracker_create)
-
-
-# Services mocks
-
-
-@pytest.fixture
-def tracker_service(async_session_factory):
-    return TrackerService(async_session_factory)
-
-
-@pytest.fixture
-def user_service(async_session_factory):
-    return UserService(async_session_factory)
-
-
-@pytest.fixture
-def data_service(async_session_factory):
-    return DataService(async_session_factory)
