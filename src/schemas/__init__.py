@@ -12,6 +12,6 @@ from .tracker import (
 from .result import (
     AggregatedNumericData,
     DataResult,
-    StaticticsTrackerData,
+    StatisticsTrackerData,
     FieldResult,
 )

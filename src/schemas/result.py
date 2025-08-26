@@ -25,8 +25,8 @@ class AggregatedNumericData(BaseModel):
     record_count: int
 
 
-class StaticticsTrackerData(BaseModel):
-    type: Literal["numeric", "categorial"]
+class StatisticsTrackerData(BaseModel):
+    type: Literal["numeric", "categorical"]
     min: float | int | None = None
     max: float | int | None = None
     avg: float | int | None = None
@@ -36,8 +36,8 @@ class StaticticsTrackerData(BaseModel):
     field_name: str
 
     @model_validator(mode="after")
-    def validate_at_least_one_not_none(self) -> "StaticticsTrackerData":
-        if self.type == "categorial" and (
+    def validate_at_least_one_not_none(self) -> "StatisticsTrackerData":
+        if self.type == "categorical" and (
             self.mode is None or any([self.min, self.max, self.avg, self.sum])
         ):
             raise ValueError()

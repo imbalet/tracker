@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import cast
 from uuid import uuid4
 
-from src.schemas import DataResult, StaticticsTrackerData
+from src.schemas import DataResult, StatisticsTrackerData
 from src.services.database.data_service import DataService
 from src.use_cases import (
     GetCSVUseCase,
@@ -65,10 +65,10 @@ async def test_empty_get_csv(data_service_mock):
 
 async def test_valid_get_statistics(data_service_mock):
     data_service_mock.get_statistics.return_value = [
-        StaticticsTrackerData(
+        StatisticsTrackerData(
             type="numeric", min=1, max=1, avg=1, sum=1, count=1, field_name="int"
         ),
-        StaticticsTrackerData(type="categorial", mode="1", count=1, field_name="name"),
+        StatisticsTrackerData(type="categorical", mode="1", count=1, field_name="name"),
     ]
     data_service_mock = cast(DataService, data_service_mock)
 
@@ -76,7 +76,7 @@ async def test_valid_get_statistics(data_service_mock):
     res = await uc.execute(
         tracker_id=uuid4(),
         numeric_fields=["int"],
-        categorial_fields=["name"],
+        categorical_fields=["name"],
         from_date=datetime.now(),
     )
     assert res
@@ -90,7 +90,7 @@ async def test_empty_get_statistics(data_service_mock):
     res = await uc.execute(
         tracker_id=uuid4(),
         numeric_fields=["int"],
-        categorial_fields=["name"],
+        categorical_fields=["name"],
         from_date=datetime.now(),
     )
 

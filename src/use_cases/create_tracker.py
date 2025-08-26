@@ -1,7 +1,12 @@
 from enum import StrEnum, auto
 
 from src.core.dynamic_json import DynamicJson
-from src.schemas import TrackerCreate, TrackerResponse, TrackerStructureCreate
+from src.core.dynamic_json.types import FieldDataType
+from src.schemas import (
+    TrackerCreate,
+    TrackerResponse,
+    TrackerStructureCreate,
+)
 from src.services.database import TrackerService, UserService
 
 __all__ = [
@@ -13,10 +18,22 @@ __all__ = [
 
 
 class CreateTrackerDraftUseCase:
+    """Creates DTO for tracker creation."""
+
     class Error(StrEnum):
         NO_TEXT = auto()
 
     def execute(self, name: str) -> tuple[TrackerCreate | None, Error | None]:
+        """Creates DTO for tracker creation.
+
+        Args:
+            name (str): The name of tracker.
+
+        Returns:
+            tuple[TrackerCreate | None, Error | None]:\
+                DTO with tracker name and tracker data structure initialized as empty (or None if an error occurred)\
+                and an error code (or None if successful).
+        """
         name = name.strip()
         if not name:
             return None, self.Error.NO_TEXT
@@ -29,11 +46,23 @@ class CreateTrackerDraftUseCase:
 
 
 class ProcessEnumValuesUseCase:
+    """Validates the provided enum values for a field."""
+
     class Error(StrEnum):
         NO_TEXT = auto()
         WRONG_COUNT = auto()
 
     def execute(self, text: str | None) -> tuple[list[str], Error | None]:
+        """Validates the provided enum values for a field.
+
+        Args:
+            text (str | None): The text entered by the user
+
+        Returns:
+            tuple[list[str], Error | None]:\
+                A list with enum values (or empty if an error occurred)\
+                and an error code (or None if successful).
+        """
         if not text or not text.strip():
             return ([], self.Error.NO_TEXT)
         text = text.strip()
@@ -44,6 +73,8 @@ class ProcessEnumValuesUseCase:
 
 
 class ProcessFieldNameUseCase:
+    """Validates the provided field name and updates the tracker structure."""
+
     class Error(StrEnum):
         NO_TEXT = auto()
         ALREADY_EXISTS = auto()
@@ -55,6 +86,19 @@ class ProcessFieldNameUseCase:
         enum_values: list[str],
         tracker: TrackerCreate,
     ) -> tuple[TrackerCreate | None, Error | None]:
+        """Validates the provided field name and updates the tracker structure.
+
+        Args:
+            field_name (str | None): The name of the field.
+            field_type (FieldDataType): The type of the field.
+            enum_values (list[str]): The enum values for the field, used only if the field type is 'enum'.
+            tracker (TrackerCreate): The tracker DTO to be updated.
+
+        Returns:
+            tuple[TrackerCreate | None, Error | None]:\
+                A tuple containing the updated tracker DTO (or None if an error occurred)\
+                and an error code (or None if successful).
+        """
         if not field_name or not field_name.strip():
             return (None, self.Error.NO_TEXT)
         field_name = field_name.strip()
@@ -81,6 +125,17 @@ class FinishTrackerCreation:
     async def execute(
         self, tracker: TrackerCreate, user_id: str
     ) -> tuple[TrackerResponse | None, Error | None]:
+        """Validates the tracker structure and creates the tracker.
+
+        Args:
+            tracker (TrackerCreate): The tracker DTO.
+            user_id (str): The ID of the user creating the tracker.
+
+        Returns:
+            tuple[TrackerResponse | None, Error | None]:\
+                The created tracker DTO (or None if an error occurred)\
+                and an error code (or None if successful).
+        """
         if len(tracker.structure.data) == 0:
             return None, self.Error.AT_LEAST_ONE_FIELD_REQUIRED
 
@@ -88,6 +143,6 @@ class FinishTrackerCreation:
         if user is None:
             user = await self.user_service.create(user_id)
 
-        self.dj = DynamicJson.from_fields(fields=tracker.structure.data)
+        DynamicJson.from_fields(fields=tracker.structure.data)
         created_tracker = await self.tracker_service.create(tracker=tracker)
         return created_tracker, None

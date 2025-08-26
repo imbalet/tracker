@@ -7,7 +7,7 @@ from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION, array
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.models import TrackerDataOrm
-from src.schemas import AggregatedNumericData, DataResult, StaticticsTrackerData
+from src.schemas import AggregatedNumericData, DataResult, StatisticsTrackerData
 from src.schemas.result import FieldResult
 
 AggregateType = Literal["min", "max", "avg", "sum"]
@@ -190,9 +190,9 @@ class DataService:
         self,
         tracker_id: UUID,
         numeric_fields: list[str] | None,
-        categorial_fields: list[str] | None,
+        categorical_fields: list[str] | None,
         from_date: datetime | None = None,
-    ) -> list[StaticticsTrackerData]:
+    ) -> list[StatisticsTrackerData]:
         async with self.session_factory() as session:
             selects = []
             if numeric_fields:
@@ -209,8 +209,8 @@ class DataService:
                             func.count(field_expr).label(f"{field}_count"),
                         ]
                     )
-            if categorial_fields:
-                for field in categorial_fields:
+            if categorical_fields:
+                for field in categorical_fields:
                     field_expr = TrackerDataOrm.data[field].astext
                     selects.extend(
                         [
@@ -238,7 +238,7 @@ class DataService:
             if numeric_fields:
                 result.extend(
                     [
-                        StaticticsTrackerData(
+                        StatisticsTrackerData(
                             field_name=field,
                             type="numeric",
                             min=getattr(row, f"{field}_min", -1),
@@ -250,16 +250,16 @@ class DataService:
                         for field in numeric_fields
                     ]
                 )
-            if categorial_fields:
+            if categorical_fields:
                 result.extend(
                     [
-                        StaticticsTrackerData(
+                        StatisticsTrackerData(
                             field_name=field,
-                            type="categorial",
+                            type="categorical",
                             mode=getattr(row, f"{field}_mode", ""),
                             count=getattr(row, f"{field}_count", 0),
                         )
-                        for field in categorial_fields
+                        for field in categorical_fields
                     ]
                 )
 

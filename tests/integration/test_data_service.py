@@ -157,7 +157,7 @@ async def test_valid_get_statistics_all_fields(
     res = await data_service.get_statistics(
         sample_tracker_created.id,
         numeric_fields=["int_name", "float_name"],
-        categorial_fields=["string_name", "enum_name"],
+        categorical_fields=["string_name", "enum_name"],
     )
 
     for field in res:
@@ -167,5 +167,5 @@ async def test_valid_get_statistics_all_fields(
             assert field.max
             assert field.avg
             assert field.sum
-        if field.type == "categorial":
+        if field.type == "categorical":
             assert field.mode

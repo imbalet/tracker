@@ -27,10 +27,10 @@ from src.schemas import TrackerResponse
 from src.services.database import TrackerService
 from src.use_cases import (
     DescribeTrackerUseCase,
-    GetFieldType,
+    GetTrackerInfoByNameUseCase,
+    GetUserTrackersUseCase,
     HandleFieldValueUseCase,
-    ShowTrackersUseCase,
-    StartTrackingUseCase,
+    ValidateTrackingMessageUseCase,
 )
 
 router = Router(name=__name__)
@@ -64,12 +64,12 @@ async def show_trackers(
     t: TFunction,
     kbr_builder: KeyboardBuilder,
 ) -> None:
-    show_trackers_uc = ShowTrackersUseCase(tracker_service=tracker_service)
+    show_trackers_uc = GetUserTrackersUseCase(tracker_service=tracker_service)
     trackers, err = await show_trackers_uc.execute(user_id=str(message.chat.id))
 
     if err:
         match err:
-            case ShowTrackersUseCase.Error.NO_TRACKERS:
+            case GetUserTrackersUseCase.Error.NO_TRACKERS:
                 await message.answer(text=t(MsgKey.TR_NO_TRACKERS))
         return
 
@@ -152,20 +152,23 @@ async def start_tracking(
     t: TFunction,
     kbr_builder: KeyboardBuilder,
 ) -> None:
-    start_tracking_use_case = StartTrackingUseCase(tracker_service=tracker_service)
-    tracker, tracker_name, err = await start_tracking_use_case.execute(
-        text=message.text
-    )
-
     await state.clear()
+
+    validating_input_uc = ValidateTrackingMessageUseCase()
+    tracker_name, err = validating_input_uc.execute(text=message.text)
+
     if err:
-        match err:
-            case StartTrackingUseCase.Error.NO_TEXT:
-                await message.answer(text=t(MsgKey.TR_TRACKER_NOT_ENTERED))
-            case StartTrackingUseCase.Error.NO_TRACKER:
-                await message.answer(
-                    text=t(MsgKey.TR_TRACKER_NAME_NOT_FOUND, tracker_name=tracker_name)
-                )
+        await message.answer(
+            text=t(MsgKey.TR_TRACKER_NAME_NOT_FOUND, tracker_name=tracker_name)
+        )
+        return
+
+    get_tracker_info_uc = GetTrackerInfoByNameUseCase(tracker_service=tracker_service)
+    tracker, err = await get_tracker_info_uc.execute(name=tracker_name)
+    if err:
+        await message.answer(
+            text=t(MsgKey.TR_TRACKER_NAME_NOT_FOUND, tracker_name=tracker_name)
+        )
         return
 
     tracker = cast(TrackerResponse, tracker)
@@ -192,16 +195,13 @@ async def handle_field(
     kbr_builder: KeyboardBuilder,
 ):
     data = await DataModelStrictTracker.load(state)
-    get_field_type_uc = GetFieldType()
-    field_type, err = get_field_type_uc.execute(
-        tracker=data.tracker, field_name=callback_data.name
-    )
-    if err:
-        match err:
-            case GetFieldType.Error.NO_FIELD:
-                # impossible, TODO: add handling, just in case
-                pass
-        return
+
+    field_type = data.tracker.structure.data.get(callback_data.name, {}).get("type")
+    if not field_type:
+        # impossible
+        # TODO: add handling just in case
+        pass
+
     await DataModel(cur_field=callback_data.name).save(state)
 
     await state.set_state(AddingData.AWAIT_FIELD_VALUE)
@@ -324,7 +324,7 @@ async def handle_enum_value(
                 data.tracker, exclude_fields=set(field_values.keys())
             ),
         )
-    callback.answer
+    await callback.answer()
 
 
 @router.callback_query(AddingData.AWAIT_NEXT_ACTION, CancelCallback.filter())
