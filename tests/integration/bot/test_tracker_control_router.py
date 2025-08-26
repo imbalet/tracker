@@ -4,19 +4,19 @@ from uuid import uuid4
 
 import pytest
 from aiogram.fsm.context import FSMContext
-
-from src.presentation.callbacks import FieldCallback, TrackerCallback
-from src.presentation.routers.tracker_control import (
+from tracker.presentation.callbacks import FieldCallback, TrackerCallback
+from tracker.presentation.routers.tracker_control import (
     describe_tracker,
     handle_field,
     handle_field_value,
     show_trackers,
     start_tracking,
 )
-from src.presentation.states import AddingData
-from src.presentation.utils.keyboard import KeyboardBuilder
-from src.schemas import TrackerResponse
-from src.schemas.tracker import TrackerDataCreate
+from tracker.presentation.states import AddingData
+from tracker.presentation.utils.keyboard import KeyboardBuilder
+from tracker.schemas import TrackerResponse
+from tracker.schemas.tracker import TrackerDataCreate
+
 from tests.integration.bot.utils import create_callback, create_message
 
 

@@ -3,8 +3,7 @@ from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
-
-from src.presentation.callbacks import (
+from tracker.presentation.callbacks import (
     ActionCallback,
     BackCallback,
     CancelCallback,
@@ -17,8 +16,8 @@ from src.presentation.callbacks import (
     TrackerCallback,
     TrackerDataActionsCallback,
 )
-from src.presentation.constants.text import MsgKey
-from src.schemas import TrackerResponse
+from tracker.presentation.constants.text import MsgKey
+from tracker.schemas import TrackerResponse
 
 from .translations import TFunction
 

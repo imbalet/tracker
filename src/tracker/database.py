@@ -1,7 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
-from src.config import config
-from src.models import Base
+from tracker.config import config
+from tracker.models import Base
 
 
 async def create_tables(engine):

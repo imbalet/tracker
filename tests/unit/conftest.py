@@ -2,8 +2,7 @@ import inspect
 from unittest.mock import AsyncMock, create_autospec
 
 import pytest
-
-from src.services.database import DataService, TrackerService, UserService
+from tracker.services.database import DataService, TrackerService, UserService
 
 
 @pytest.fixture

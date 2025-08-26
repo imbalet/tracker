@@ -1,7 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-
-from src.models import UserOrm
-from src.schemas import UserResponse
+from tracker.models import UserOrm
+from tracker.schemas import UserResponse
 
 
 class UserService:

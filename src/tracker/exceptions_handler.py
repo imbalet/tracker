@@ -1,11 +1,10 @@
 from aiogram.types import ErrorEvent, Update
-
-from src.core.dynamic_json.exceptions import (
+from tracker.core.dynamic_json.exceptions import (
     AttributeException,
     TypeException,
     ValidationException,
 )
-from src.exceptions import NotFoundException
+from tracker.exceptions import NotFoundException
 
 
 def get_chat_info(update: Update):

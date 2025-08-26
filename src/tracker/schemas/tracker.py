@@ -2,9 +2,8 @@ from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel
-
-from src.core.dynamic_json.types import FieldType
-from src.schemas import UserResponse
+from tracker.core.dynamic_json.types import FieldType
+from tracker.schemas import UserResponse
 
 
 class TrackerDataCreate(BaseModel):

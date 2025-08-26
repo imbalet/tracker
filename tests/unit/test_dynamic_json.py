@@ -1,8 +1,7 @@
 import pytest
-
-from src.core.dynamic_json import DynamicJson
-from src.core.dynamic_json.exceptions import ValidationException
-from src.core.dynamic_json.types import FieldType
+from tracker.core.dynamic_json import DynamicJson
+from tracker.core.dynamic_json.exceptions import ValidationException
+from tracker.core.dynamic_json.types import FieldType
 
 
 @pytest.fixture

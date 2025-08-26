@@ -4,17 +4,16 @@ from aiogram import Router
 from aiogram.filters import Command, or_f
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
-
-from src.presentation.callbacks import (
+from tracker.presentation.callbacks import (
     BackCallback,
     CancelCallback,
     EnumValuesCallback,
     FieldCallback,
     TrackerCallback,
 )
-from src.presentation.constants.text import MsgKey
-from src.presentation.states import AddingData, DataState, TrackerControlState
-from src.presentation.utils import (
+from tracker.presentation.constants.text import MsgKey
+from tracker.presentation.states import AddingData, DataState, TrackerControlState
+from tracker.presentation.utils import (
     CallbackQueryWithMessage,
     KeyboardBuilder,
     TFunction,
@@ -22,10 +21,10 @@ from src.presentation.utils import (
     get_tracker_description_from_dto,
     update_main_message,
 )
-from src.presentation.utils.state import StateModel
-from src.schemas import TrackerResponse
-from src.services.database import TrackerService
-from src.use_cases import (
+from tracker.presentation.utils.state import StateModel
+from tracker.schemas import TrackerResponse
+from tracker.services.database import TrackerService
+from tracker.use_cases import (
     GetUserTrackersUseCase,
     HandleFieldValueUseCase,
     ValidateTrackingMessageUseCase,

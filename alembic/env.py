@@ -4,11 +4,10 @@ from logging.config import fileConfig
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
+from tracker.config import config as app_config
+from tracker.models import Base
 
 from alembic import context
-
-from src.config import config as app_config
-from src.models import Base
 
 config = context.config
 config.set_main_option("sqlalchemy.url", app_config.DB_URL)

@@ -1,12 +1,12 @@
-from schemas.tracker import TrackerCreate
-from src.schemas import (
+from tracker.schemas import (
+    TrackerCreate,
     TrackerCreateBase,
     TrackerDataCreate,
     TrackerResponse,
     TrackerStructureCreate,
     UserResponse,
 )
-from src.services.database import TrackerService
+from tracker.services.database import TrackerService
 
 
 async def test_valid_create(

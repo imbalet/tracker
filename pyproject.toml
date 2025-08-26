@@ -21,3 +21,6 @@ dev = [
     "pytest-cov>=6.2.1",
     "pytest-mock>=3.14.1",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]

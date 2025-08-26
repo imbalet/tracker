@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Literal
 
-from src.presentation.constants import PERIOD_DELTAS
+from tracker.presentation.constants import PERIOD_DELTAS
 
 
 def convert_date(

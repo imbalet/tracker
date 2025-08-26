@@ -5,12 +5,13 @@ services:
       POSTGRES_DB: ${TEST_DB_NAME}
       POSTGRES_USER: ${TEST_DB_USER}
       POSTGRES_PASSWORD: ${TEST_DB_PASS}
+      PGDATA: /var/lib/postgresql/data/pgdata
     networks:
       - app-network
 
   app:
     build: .
-    entrypoint: ["pytest", "tests"]
+    entrypoint: [".venv/bin/pytest", "tests"]
     environment:
       LOG_LEVEL: ${LOG_LEVEL}
 

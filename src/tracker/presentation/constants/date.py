@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from src.presentation.constants.text import MsgKey
+from tracker.presentation.constants.text import MsgKey
 
 PERIOD_TYPES = {
     "years": MsgKey.DATE_YEARS,

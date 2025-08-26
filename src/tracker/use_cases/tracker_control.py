@@ -1,9 +1,9 @@
 from enum import StrEnum, auto
 
-from src.core.dynamic_json import DynamicJson
-from src.schemas import TrackerResponse
-from src.schemas.tracker import TrackerDataCreate
-from src.services.database import TrackerService
+from tracker.core.dynamic_json import DynamicJson
+from tracker.schemas import TrackerResponse
+from tracker.schemas.tracker import TrackerDataCreate
+from tracker.services.database import TrackerService
 
 __all__ = [
     "GetUserTrackersUseCase",

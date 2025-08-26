@@ -5,13 +5,12 @@ from uuid import uuid4
 import pytest
 from aiogram.fsm.context import FSMContext
 from pytest_mock import MockerFixture
-
-from src.presentation.callbacks import FieldTypeCallback
-from src.presentation.constants import (
+from tracker.presentation.callbacks import FieldTypeCallback
+from tracker.presentation.constants import (
     ST_CR_CUR_FIELD_TYPE,
     ST_CR_TRACKER,
 )
-from src.presentation.routers.create_tracker import (
+from tracker.presentation.routers.create_tracker import (
     cancel_creation,
     process_enum_values,
     process_field_name,
@@ -21,9 +20,10 @@ from src.presentation.routers.create_tracker import (
     process_tracker_name,
     start_tracker_creation,
 )
-from src.presentation.states import TrackerCreation
-from src.presentation.utils.keyboard import KeyboardBuilder
-from src.schemas import TrackerResponse, TrackerStructureResponse, UserResponse
+from tracker.presentation.states import TrackerCreation
+from tracker.presentation.utils.keyboard import KeyboardBuilder
+from tracker.schemas import TrackerResponse, TrackerStructureResponse, UserResponse
+
 from tests.integration.bot.utils import create_callback, create_message
 
 # TODO add translation for strings

@@ -5,10 +5,9 @@ from uuid import UUID
 from sqlalchemy import Integer, Numeric, cast, func, select
 from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION, array
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-
-from src.models import TrackerDataOrm
-from src.schemas import AggregatedNumericData, DataResult, StatisticsTrackerData
-from src.schemas.result import FieldResult
+from tracker.models import TrackerDataOrm
+from tracker.schemas import AggregatedNumericData, DataResult, StatisticsTrackerData
+from tracker.schemas.result import FieldResult
 
 AggregateType = Literal["min", "max", "avg", "sum"]
 

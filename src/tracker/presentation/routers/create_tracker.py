@@ -5,12 +5,15 @@ from aiogram.filters import Command, or_f
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from pydantic import Field
-
-from src.core.dynamic_json.types import FieldDataType
-from src.presentation.callbacks import ActionCallback, CancelCallback, FieldTypeCallback
-from src.presentation.constants.text import MsgKey
-from src.presentation.states import TrackerCreation
-from src.presentation.utils import (
+from tracker.core.dynamic_json.types import FieldDataType
+from tracker.presentation.callbacks import (
+    ActionCallback,
+    CancelCallback,
+    FieldTypeCallback,
+)
+from tracker.presentation.constants.text import MsgKey
+from tracker.presentation.states import TrackerCreation
+from tracker.presentation.utils import (
     CallbackQueryWithMessage,
     KeyboardBuilder,
     StateModel,
@@ -19,9 +22,9 @@ from src.presentation.utils import (
     get_tracker_description_from_dto,
     update_main_message,
 )
-from src.schemas import TrackerCreate
-from src.services.database import TrackerService, UserService
-from src.use_cases import (
+from tracker.schemas import TrackerCreate
+from tracker.services.database import TrackerService, UserService
+from tracker.use_cases import (
     CreateTrackerDraftUseCase,
     FinishTrackerCreation,
     ProcessEnumValuesUseCase,

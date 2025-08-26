@@ -3,9 +3,8 @@ from datetime import datetime
 from uuid import uuid4
 
 import pytest
-
-from src.schemas import DataResult, StatisticsTrackerData, TrackerResponse
-from src.use_cases import (
+from tracker.schemas import DataResult, StatisticsTrackerData, TrackerResponse
+from tracker.use_cases import (
     GetCSVUseCase,
     GetStatisticsUseCase,
     HandleFieldUseCase,

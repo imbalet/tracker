@@ -4,9 +4,9 @@ from enum import StrEnum, auto
 from io import BytesIO, TextIOWrapper
 from uuid import UUID
 
-from schemas.tracker import TrackerResponse
-from src.schemas.result import StatisticsTrackerData
-from src.services.database import DataService
+from tracker.schemas.result import StatisticsTrackerData
+from tracker.schemas.tracker import TrackerResponse
+from tracker.services.database import DataService
 
 __all__ = [
     "GetCSVUseCase",

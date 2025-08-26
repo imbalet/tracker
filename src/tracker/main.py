@@ -8,21 +8,20 @@ from aiogram.enums import ParseMode
 from aiogram.filters.exception import ExceptionTypeFilter
 from aiogram.methods.delete_webhook import DeleteWebhook
 from aiogram.types import BotCommand
-
-from src.config import config
-from src.core.dynamic_json.exceptions import DynamicJsonException
-from src.database import get_sessionmaker
-from src.exceptions import ServiceExceptions
-from src.exceptions_handler import (
+from tracker.config import config
+from tracker.core.dynamic_json.exceptions import DynamicJsonException
+from tracker.database import get_sessionmaker
+from tracker.exceptions import ServiceExceptions
+from tracker.exceptions_handler import (
     dynamic_json_exceptions_handler,
     service_exceptions_handler,
 )
-from src.presentation.middleware import (
+from tracker.presentation.middleware import (
     CallbackMessageMiddleware,
     DBMiddleware,
     LanguageMiddleware,
 )
-from src.presentation.routers import (
+from tracker.presentation.routers import (
     create_tracker_router,
     data_router,
     general_router,

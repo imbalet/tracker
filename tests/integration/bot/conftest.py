@@ -4,10 +4,9 @@ import pytest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.fsm.storage.memory import MemoryStorage
-
-from src.presentation.utils.keyboard import KeyboardBuilder
-from src.presentation.utils.translations import _t
-from src.services.database import TrackerService, UserService
+from tracker.presentation.utils.keyboard import KeyboardBuilder
+from tracker.presentation.utils.translations import _t
+from tracker.services.database import TrackerService, UserService
 
 
 @pytest.fixture

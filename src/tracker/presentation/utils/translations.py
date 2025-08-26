@@ -1,6 +1,6 @@
 from typing import Any, Protocol
 
-from src.presentation.constants.text import TRANSLATIONS, Language, MsgKey
+from tracker.presentation.constants.text import TRANSLATIONS, Language, MsgKey
 
 
 class TFunction(Protocol):

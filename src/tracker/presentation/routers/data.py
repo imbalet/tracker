@@ -5,8 +5,7 @@ from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from aiogram.types.input_file import BufferedInputFile
-
-from src.presentation.callbacks import (
+from tracker.presentation.callbacks import (
     BackCallback,
     CancelCallback,
     ConfirmCallback,
@@ -15,21 +14,21 @@ from src.presentation.callbacks import (
     TrackerActionsCallback,
     TrackerDataActionsCallback,
 )
-from src.presentation.constants import PERIOD_TYPES
-from src.presentation.constants.text import MsgKey
-from src.presentation.states import DataState
-from src.presentation.utils import (
+from tracker.presentation.constants import PERIOD_TYPES
+from tracker.presentation.constants.text import MsgKey
+from tracker.presentation.states import DataState
+from tracker.presentation.utils import (
     CallbackQueryWithMessage,
     KeyboardBuilder,
     TFunction,
     convert_date,
     update_main_message,
 )
-from src.presentation.utils.state import StateModel
-from src.schemas.tracker import TrackerResponse
-from src.services.database.data_service import DataService
-from src.services.database.tracker_service import TrackerService
-from src.use_cases import (
+from tracker.presentation.utils.state import StateModel
+from tracker.schemas.tracker import TrackerResponse
+from tracker.services.database.data_service import DataService
+from tracker.services.database.tracker_service import TrackerService
+from tracker.use_cases import (
     GetCSVUseCase,
     GetStatisticsUseCase,
     HandleFieldUseCase,

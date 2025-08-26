@@ -4,9 +4,8 @@ from typing import Any
 from uuid import UUID
 
 import pytest
-
-from src.core.dynamic_json.types import FieldType, field_types_list
-from src.schemas import (
+from tracker.core.dynamic_json.types import FieldType, field_types_list
+from tracker.schemas import (
     TrackerCreate,
     TrackerDataCreate,
     TrackerDataResponse,

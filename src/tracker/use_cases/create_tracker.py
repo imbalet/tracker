@@ -1,13 +1,13 @@
 from enum import StrEnum, auto
 
-from src.core.dynamic_json import DynamicJson
-from src.core.dynamic_json.types import FieldDataType
-from src.schemas import (
+from tracker.core.dynamic_json import DynamicJson
+from tracker.core.dynamic_json.types import FieldDataType
+from tracker.schemas import (
     TrackerCreate,
     TrackerResponse,
     TrackerStructureCreate,
 )
-from src.services.database import TrackerService, UserService
+from tracker.services.database import TrackerService, UserService
 
 __all__ = [
     "CreateTrackerDraftUseCase",

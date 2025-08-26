@@ -1,13 +1,12 @@
 import pytest
-
-from src.core.dynamic_json.types import FieldDataType
-from src.schemas import (
+from tracker.core.dynamic_json.types import FieldDataType
+from tracker.schemas import (
     TrackerCreate,
     TrackerResponse,
     TrackerStructureCreate,
     UserResponse,
 )
-from src.use_cases import (
+from tracker.use_cases import (
     CreateTrackerDraftUseCase,
     FinishTrackerCreation,
     ProcessEnumValuesUseCase,

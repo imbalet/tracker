@@ -1,6 +1,5 @@
 from aiogram import html
-
-from src.schemas import TrackerCreate, TrackerResponse
+from tracker.schemas import TrackerCreate, TrackerResponse
 
 
 def _get_tracker_text(

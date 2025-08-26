@@ -1,5 +1,5 @@
-from src.schemas import UserCreate, UserResponse
-from src.services.database import UserService
+from tracker.schemas import UserCreate, UserResponse
+from tracker.services.database import UserService
 
 
 async def test_valid_add(sample_user_create: UserCreate, user_service: UserService):

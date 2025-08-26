@@ -1,10 +1,9 @@
 from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
-
-from src.presentation.constants.text import Language, MsgKey
-from src.presentation.utils import TFunction
-from src.services.database import UserService
+from tracker.presentation.constants.text import Language, MsgKey
+from tracker.presentation.utils import TFunction
+from tracker.services.database import UserService
 
 router = Router(name=__name__)
 

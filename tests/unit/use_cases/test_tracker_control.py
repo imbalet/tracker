@@ -1,7 +1,7 @@
 import pytest
 
-from schemas.tracker import TrackerResponse
-from src.use_cases import (
+from tracker.schemas.tracker import TrackerResponse
+from tracker.use_cases import (
     GetUserTrackersUseCase,
     HandleFieldValueUseCase,
     ValidateTrackingMessageUseCase,

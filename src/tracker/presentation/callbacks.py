@@ -2,8 +2,7 @@ from typing import Literal
 from uuid import UUID
 
 from aiogram.filters.callback_data import CallbackData
-
-from src.core.dynamic_json.types import FieldDataType
+from tracker.core.dynamic_json.types import FieldDataType
 
 
 class FieldTypeCallback(CallbackData, prefix="field"):

@@ -7,9 +7,8 @@ from aiogram.types import (
     Message,
     TelegramObject,
 )
-
-from src.presentation.utils import KeyboardBuilder, _t
-from src.services.database import DataService, TrackerService, UserService
+from tracker.presentation.utils import KeyboardBuilder, _t
+from tracker.services.database import DataService, TrackerService, UserService
 
 
 class DBMiddleware(BaseMiddleware):
