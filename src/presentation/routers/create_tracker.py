@@ -4,6 +4,7 @@ from aiogram import F, Router
 from aiogram.filters import Command, or_f
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
+from pydantic import Field
 
 from src.core.dynamic_json.types import FieldDataType
 from src.presentation.callbacks import ActionCallback, CancelCallback, FieldTypeCallback
@@ -30,10 +31,14 @@ from src.use_cases import (
 router = Router(name=__name__)
 
 
+class DataModelTracker(StateModel):
+    tracker: TrackerCreate
+
+
 class DataModelStrict(StateModel):
     tracker: TrackerCreate
     cur_field_type: FieldDataType
-    cur_enum_values: list[str]
+    cur_enum_values: list[str] = Field(default_factory=list)
 
 
 class DataModel(StateModel):
@@ -198,7 +203,7 @@ async def process_next_action_add_field(
     t: TFunction,
     kbr_builder: KeyboardBuilder,
 ):
-    data = await DataModelStrict.load(state)
+    data = await DataModelTracker.load(state)
 
     await state.set_state(TrackerCreation.AWAIT_FIELD_TYPE)
     await update_main_message(
@@ -221,7 +226,7 @@ async def process_next_action_finish(
     user_service: UserService,
     t: TFunction,
 ):
-    data = await DataModelStrict.load(state)
+    data = await DataModelTracker.load(state)
 
     uc = FinishTrackerCreation(tracker_service, user_service)
     tracker, err = await uc.execute(

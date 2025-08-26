@@ -6,7 +6,7 @@ from uuid import UUID
 
 from schemas.tracker import TrackerResponse
 from src.schemas.result import StatisticsTrackerData
-from src.services.database import DataService, TrackerService
+from src.services.database import DataService
 
 __all__ = [
     "GetCSVUseCase",
@@ -129,10 +129,7 @@ class HandlePeriodValueUseCase:
 class HandleFieldUseCase:
     """Adds or removes a field from the selected fields list and generates a response text."""
 
-    def __init__(self, tracker_service: TrackerService) -> None:
-        self.tracker_service = tracker_service
-
-    async def execute(
+    def execute(
         self, field_name: str, selected_fields: list[str]
     ) -> tuple[list[str], str]:
         """Adds or removes a field from the selected fields list and generates a response text.
@@ -158,10 +155,7 @@ class HandleFieldUseCase:
 class SplitFieldsByTypeUseCase:
     """Split the selected fields into numeric and categorical fields."""
 
-    def __init__(self, tracker_service: TrackerService) -> None:
-        self.tracker_service = tracker_service
-
-    async def execute(
+    def execute(
         self, selected_fields: list[str], tracker: TrackerResponse
     ) -> tuple[list[str], list[str]]:
         """Split the selected fields into numeric and categorical fields.

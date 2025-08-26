@@ -186,15 +186,14 @@ async def handle_field(
     callback: CallbackQueryWithMessage,
     callback_data: FieldCallback,
     state: FSMContext,
-    tracker_service: TrackerService,
     t: TFunction,
     kbr_builder: KeyboardBuilder,
 ):
     data = await DataModelStrict.load(state)
     selected_fields: list = data.selected_fields
 
-    handle_field_uc = HandleFieldUseCase(tracker_service=tracker_service)
-    selected_fields, fields_text = await handle_field_uc.execute(
+    handle_field_uc = HandleFieldUseCase()
+    selected_fields, fields_text = handle_field_uc.execute(
         field_name=callback_data.name,
         selected_fields=selected_fields,
     )
@@ -218,15 +217,14 @@ async def handle_field_confirm(
     callback: CallbackQueryWithMessage,
     state: FSMContext,
     data_service: DataService,
-    tracker_service: TrackerService,
     t: TFunction,
 ):
     await state.set_state(None)
     data = await DataModelStrict.load(state)
     selected_fields: list = data.selected_fields
 
-    handle_fields_confirm_uc = SplitFieldsByTypeUseCase(tracker_service=tracker_service)
-    numeric_fields, categorical_fields = await handle_fields_confirm_uc.execute(
+    handle_fields_confirm_uc = SplitFieldsByTypeUseCase()
+    numeric_fields, categorical_fields = handle_fields_confirm_uc.execute(
         selected_fields=selected_fields, tracker=data.tracker
     )
     # TODO: add selected fields length validation
