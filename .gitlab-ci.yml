@@ -25,18 +25,22 @@ test:
     TEST_DB_PORT: "5432"
 
   script:
-    - docker compose -f docker-compose.test.yml down -v
-    - docker compose -f docker-compose.test.yml up --build --abort-on-container-exit
-    - docker compose -f docker-compose.test.yml down -v
+    - docker compose -f docker-compose.test.yml down -v --remove-orphans
+    - docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans
+    - docker compose -f docker-compose.test.yml down -v --remove-orphans
   tags:
     - docker
+  rules:
+    - when: always
 
 deploy:
   stage: deploy
   image: docker:28.3.2
   script:
-    - docker compose down
-    - docker compose up --build -d
+    - docker compose down --remove-orphans 
+    - docker compose up --build -d --remove-orphans
   tags:
     - docker
-
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - when: manual
