@@ -1,5 +1,7 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from tests.config import config
 from tracker.models import Base
 from tracker.schemas import (
     TrackerResponse,
@@ -8,8 +10,6 @@ from tracker.schemas import (
 )
 from tracker.schemas.tracker import TrackerCreate
 from tracker.services.database import DataService, TrackerService, UserService
-
-from tests.config import config
 
 
 @pytest.fixture

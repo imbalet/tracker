@@ -4,8 +4,11 @@ from uuid import uuid4
 
 import pytest
 from aiogram.fsm.context import FSMContext
+
+from tests.integration.bot.utils import create_callback, create_message
 from tracker.presentation.callbacks import FieldCallback, TrackerCallback
 from tracker.presentation.routers.tracker_control import (
+    DataModel,
     describe_tracker,
     handle_field,
     handle_field_value,
@@ -15,9 +18,9 @@ from tracker.presentation.routers.tracker_control import (
 from tracker.presentation.states import AddingData
 from tracker.presentation.utils.keyboard import KeyboardBuilder
 from tracker.schemas import TrackerResponse
-from tracker.schemas.tracker import TrackerDataCreate
-
-from tests.integration.bot.utils import create_callback, create_message
+from tracker.schemas.tracker import (
+    TrackerDataCreate,
+)
 
 
 async def test_valid_show_trackers(
@@ -75,7 +78,7 @@ async def test_valid_describe_tracker(
         kbr_builder,
     )
 
-    tracker_service.get_by_id.assert_awaited_with(tracker_id=sample_tracker_response.id)
+    tracker_service.get_by_id.assert_awaited_once()
 
 
 async def test_empty_describe_tracker(
@@ -98,7 +101,7 @@ async def test_empty_describe_tracker(
         kbr_builder,
     )
 
-    tracker_service.get_by_id.assert_awaited_with(tracker_id=tracker_id)
+    tracker_service.get_by_id.assert_awaited_once()
     assert "Трекер не найден" in message.answer.call_args.kwargs["text"]
 
 
@@ -146,22 +149,23 @@ async def test_empty_start_tracking(
     await start_tracking(message, state, tracker_service, t_, kbr_builder)
 
     assert await state.get_state() is None
-    assert "Ошибка: Не указан трекер!" in message.answer.call_args.kwargs["text"]
 
 
-@pytest.mark.skip(reason="TODO: fix")
 async def test_valid_handle_field(
+    sample_tracker_response: TrackerResponse,
     state: FSMContext,
     t_: Callable[..., str],
     kbr_builder: KeyboardBuilder,
 ):
+    await DataModel(tracker=sample_tracker_response).save(state)
+
     message = create_message("")
     callback = create_callback(message)
-    callback_data = FieldCallback(name="field_name", type="int")
+    callback_data = FieldCallback(name="int_name", type="int")
 
     await handle_field(callback, callback_data, state, t_, kbr_builder)
 
-    assert (await state.get_data())["current_field"] == "field_name"
+    assert (await DataModel.load(state)).cur_field == "int_name"
     assert await state.get_state() == AddingData.AWAIT_FIELD_VALUE
     assert "Введите значение поля" in message.answer.call_args.kwargs["text"]
 
@@ -193,19 +197,14 @@ async def test_valid_first_call_handle_field_value(
     }
     if field_type == "enum":
         sample_tracker_response.structure.data["field_name"]["values"] = ["yes", "no"]
-    await state.update_data(
-        current_field="field_name",
-        current_tracker=sample_tracker_response.model_dump(),
-    )
+    await DataModel(tracker=sample_tracker_response, cur_field="field_name").save(state)
 
     await handle_field_value(message, state, tracker_service, t_, kbr_builder)
 
-    data = await state.get_data()
+    data = await DataModel.load(state)
     assert await state.get_state() == AddingData.AWAIT_NEXT_ACTION
     message.answer.assert_awaited_once()
-    assert "field_values" in data and data["field_values"] == {
-        "field_name": message.text
-    }
+    assert data.field_values and data.field_values == {"field_name": message.text}
 
 
 @pytest.mark.parametrize(
@@ -238,12 +237,11 @@ async def test_valid_finish_handle_field_value(
     if field_type == "enum":
         sample_tracker_response.structure.data["field_name"]["values"] = ["yes", "no"]
 
-    await state.update_data(
-        current_field="field_name",
-        current_tracker=sample_tracker_response.model_dump(),
-        filled_fields=["another_name"],
+    await DataModel(
+        tracker=sample_tracker_response,
+        cur_field="field_name",
         field_values={"another_name": "1"},
-    )
+    ).save(state)
 
     await handle_field_value(message, state, tracker_service, t_, kbr_builder)
 

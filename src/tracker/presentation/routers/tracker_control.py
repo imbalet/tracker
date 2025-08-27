@@ -4,6 +4,7 @@ from aiogram import Router
 from aiogram.filters import Command, or_f
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
+
 from tracker.presentation.callbacks import (
     BackCallback,
     CancelCallback,
@@ -194,6 +195,7 @@ async def handle_field(
         # impossible
         # TODO: add handling just in case
         pass
+        return
 
     await DataModel(cur_field=callback_data.name).save(state)
 
