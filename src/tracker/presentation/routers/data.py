@@ -5,6 +5,7 @@ from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from aiogram.types.input_file import BufferedInputFile
+
 from tracker.presentation.callbacks import (
     BackCallback,
     CancelCallback,
@@ -248,13 +249,6 @@ async def handle_field_confirm(
     await update_main_message(
         state=state,
         message=callback.message,
-        # TODO move statistics presentation to a data model
-        # TODO: add categorical fields processing
-        text="\n".join(
-            [
-                f"- {i.field_name}: min - {i.min}, max - {i.max}, avg - {i.avg}, sum - {i.sum}, count - {i.count}"
-                for i in res
-            ]
-        ),
+        text="\n".join([i.formatted for i in res]),
     )
     await callback.answer()

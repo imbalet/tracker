@@ -46,3 +46,23 @@ class StatisticsTrackerData(BaseModel):
         ):
             raise ValueError()
         return self
+
+    @staticmethod
+    def _format_float(num):
+        formatted = f"{num:.2f}"
+        if "." in formatted:
+            formatted = formatted.rstrip("0").rstrip(".")
+        return formatted
+
+    @property
+    def formatted(self) -> str:
+        if self.type == "numeric":
+            return (
+                f"{self.field_name}: min - {self._format_float(self.min)}, "
+                f"max - {self._format_float(self.max)}, "
+                f"avg - {self._format_float(self.avg)}, "
+                f"sum - {self._format_float(self.sum)}, "
+                f"count - {self.count}"
+            )
+        else:
+            return f"{self.field_name}: mode - {self.mode}, count - {self.count}"
