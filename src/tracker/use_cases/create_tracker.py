@@ -23,7 +23,9 @@ class CreateTrackerDraftUseCase:
     class Error(StrEnum):
         NO_TEXT = auto()
 
-    def execute(self, name: str | None) -> tuple[TrackerCreate | None, Error | None]:
+    def execute(
+        self, name: str | None, user_id: str
+    ) -> tuple[TrackerCreate | None, Error | None]:
         """Creates DTO for tracker creation.
 
         Args:
@@ -38,7 +40,7 @@ class CreateTrackerDraftUseCase:
             return None, self.Error.NO_TEXT
         return (
             TrackerCreate(
-                name=name, user_id="", structure=TrackerStructureCreate(data={})
+                name=name, user_id=user_id, structure=TrackerStructureCreate(data={})
             ),
             None,
         )
@@ -128,7 +130,7 @@ class FinishTrackerCreation:
         self.user_service = user_service
 
     async def execute(
-        self, tracker: TrackerCreate, user_id: str
+        self, tracker: TrackerCreate
     ) -> tuple[TrackerResponse | None, Error | None]:
         """Validates the tracker structure and creates the tracker.
 
@@ -144,9 +146,9 @@ class FinishTrackerCreation:
         if len(tracker.structure.data) == 0:
             return None, self.Error.AT_LEAST_ONE_FIELD_REQUIRED
 
-        user = await self.user_service.get(user_id)
+        user = await self.user_service.get(tracker.user_id)
         if user is None:
-            user = await self.user_service.create(user_id)
+            user = await self.user_service.create(tracker.user_id)
 
         DynamicJson.from_fields(fields=tracker.structure.data)
         created_tracker = await self.tracker_service.create(tracker=tracker)

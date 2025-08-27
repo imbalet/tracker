@@ -1,4 +1,5 @@
 import pytest
+
 from tracker.core.dynamic_json.types import FieldDataType
 from tracker.schemas import (
     TrackerCreate,
@@ -26,12 +27,13 @@ from tracker.use_cases import (
 )
 def test_valid_create_draft(input: str):
     uc = CreateTrackerDraftUseCase()
-    tracker_dto, err = uc.execute(name=input)
+    tracker_dto, err = uc.execute(name=input, user_id="user_id")
 
     assert not err
     assert tracker_dto
     assert tracker_dto.name == input.strip()
     assert tracker_dto.structure.data == {}
+    assert tracker_dto.user_id == "user_id"
 
 
 @pytest.mark.parametrize(
@@ -44,7 +46,7 @@ def test_valid_create_draft(input: str):
 )
 def test_empty_name_create_draft(input: str | None):
     uc = CreateTrackerDraftUseCase()
-    _, err = uc.execute(name=input)
+    _, err = uc.execute(name=input, user_id="user_id")
 
     assert err == CreateTrackerDraftUseCase.Error.NO_TEXT
 
@@ -252,14 +254,13 @@ async def test_valid_user_exists_finish_tracker_creation(
     tracker_service_mock,
     user_service_mock,
 ):
-    user_id = "user_id"
     user_service_mock.get.return_value = sample_user_response
     tracker_service_mock.create.return_value = sample_tracker_response
 
     uc = FinishTrackerCreation(
         tracker_service=tracker_service_mock, user_service=user_service_mock
     )
-    res, err = await uc.execute(tracker=sample_tracker_create, user_id=user_id)
+    res, err = await uc.execute(tracker=sample_tracker_create)
 
     assert err is None
     assert res == sample_tracker_response
@@ -274,7 +275,7 @@ async def test_valid_user_not_exists_finish_tracker_creation(
     tracker_service_mock,
     user_service_mock,
 ):
-    user_id = "user_id"
+    user_id = sample_tracker_create.user_id
     user_service_mock.get.return_value = None
     user_service_mock.create.return_value = sample_user_response
     tracker_service_mock.create.return_value = sample_tracker_response
@@ -282,7 +283,7 @@ async def test_valid_user_not_exists_finish_tracker_creation(
     uc = FinishTrackerCreation(
         tracker_service=tracker_service_mock, user_service=user_service_mock
     )
-    res, err = await uc.execute(tracker=sample_tracker_create, user_id=user_id)
+    res, err = await uc.execute(tracker=sample_tracker_create)
 
     assert err is None
     assert res == sample_tracker_response
@@ -296,14 +297,13 @@ async def test_invalid_no_fields_finish_tracker_creation(
     tracker_service_mock,
     user_service_mock,
 ):
-    user_id = "user_id"
     tracker = sample_tracker_create.model_copy()
     tracker.structure.data = {}
 
     uc = FinishTrackerCreation(
         tracker_service=tracker_service_mock, user_service=user_service_mock
     )
-    _, err = await uc.execute(tracker=sample_tracker_create, user_id=user_id)
+    _, err = await uc.execute(tracker=sample_tracker_create)
 
     assert err is not None
     assert err == FinishTrackerCreation.Error.AT_LEAST_ONE_FIELD_REQUIRED

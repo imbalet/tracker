@@ -5,6 +5,7 @@ from aiogram.filters import Command, or_f
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from pydantic import Field
+
 from tracker.core.dynamic_json.types import FieldDataType
 from tracker.presentation.callbacks import (
     ActionCallback,
@@ -64,7 +65,9 @@ async def process_tracker_name(
     message: Message, state: FSMContext, t: TFunction, kbr_builder: KeyboardBuilder
 ):
     create_tracker_draft_uc = CreateTrackerDraftUseCase()
-    tracker, err = create_tracker_draft_uc.execute(name=message.text or "")
+    tracker, err = create_tracker_draft_uc.execute(
+        name=message.text or "", user_id=str(message.chat.id)
+    )
 
     if err:
         match err:
@@ -235,10 +238,7 @@ async def process_next_action_finish(
     data = await DataModelTracker.load(state)
 
     uc = FinishTrackerCreation(tracker_service, user_service)
-    tracker, err = await uc.execute(
-        tracker=data.tracker,
-        user_id=str(callback.message.chat.id),
-    )
+    tracker, err = await uc.execute(tracker=data.tracker)
     if err:
         match err:
             case FinishTrackerCreation.Error.AT_LEAST_ONE_FIELD_REQUIRED:
