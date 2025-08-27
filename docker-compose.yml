@@ -16,7 +16,9 @@ services:
       retries: 10
 
   app:
-    build: .
+    build: 
+      context: .
+      target: prod
     environment:
       LOG_LEVEL: ${LOG_LEVEL}
       DB_USER: ${DB_USER}
@@ -26,7 +28,7 @@ services:
       DB_PORT: ${DB_PORT}
       BOT_TOKEN: ${BOT_TOKEN}
     command: sh -c "alembic upgrade head &&
-             .venv/bin/python3 src/main.py"
+             python -m tracker.main"
     depends_on:
       db:
         condition: service_healthy

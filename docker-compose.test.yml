@@ -10,8 +10,10 @@ services:
       - app-network
 
   app:
-    build: .
-    entrypoint: [".venv/bin/pytest", "tests"]
+    build: 
+      context: .
+      target: test
+    entrypoint: ["pytest", "tests"]
     environment:
       LOG_LEVEL: ${LOG_LEVEL}
 
