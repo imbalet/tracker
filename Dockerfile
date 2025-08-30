@@ -25,12 +25,12 @@ CMD ["pytest", "tests"]
 # Production
 
 FROM base AS prod
-RUN uv sync --locked --no-install-project --no-dev
+RUN uv sync --frozen --no-install-project --no-dev
 
 COPY alembic ./alembic
 COPY src ./src
-RUN uv pip install .
+RUN uv sync --frozen --no-dev --no-editable
 ENV PATH="/app/.venv/bin:$PATH"
 
 ENTRYPOINT []
-CMD ["python", "-m", "tracker.main"]
+CMD ["uv", "run", "-m", "--no-sync", "tracker.main"]

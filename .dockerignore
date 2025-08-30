@@ -6,4 +6,5 @@ build/
 
 .venv/
 .vscode/
-.env
+
+.env*
