@@ -190,7 +190,7 @@ async def process_field_name(
                 pass
         return
 
-    await DataModel(tracker=tracker, cur_enum_values=None, cur_field_type=None).save(
+    await DataModel(tracker=tracker, cur_enum_values=[], cur_field_type=None).save(
         state
     )
     await state.set_state(TrackerCreation.AWAIT_NEXT_ACTION)

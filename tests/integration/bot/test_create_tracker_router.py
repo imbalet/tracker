@@ -169,7 +169,7 @@ async def test_valid_process_field_name(
     data = await DataModel.load(state)
 
     assert await state.get_state() == TrackerCreation.AWAIT_NEXT_ACTION
-    assert data.cur_enum_values is None
+    assert data.cur_enum_values == []
     assert data.cur_field_type is None
     assert data.tracker
     assert "name" in data.tracker.structure.data
